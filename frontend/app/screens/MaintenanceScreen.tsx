@@ -59,10 +59,13 @@ export function MaintenanceScreen() {
         assetsApi.list(),
         employees.list(),
       ]);
-      setRequests(rRes.data);
-      setAssets(aRes.data);
-      setEmps(eRes.data);
-      if (aRes.data.length > 0) setRaiseForm((f) => ({ ...f, asset_id: aRes.data[0].id }));
+      setRequests(Array.isArray(rRes.data) ? rRes.data : []);
+      const assetData = Array.isArray(aRes.data)
+        ? aRes.data
+        : (aRes.data as unknown as { assets: Asset[] })?.assets ?? [];
+      setAssets(assetData);
+      setEmps(eRes.data?.users ?? []);
+      if (assetData.length > 0) setRaiseForm((f) => ({ ...f, asset_id: assetData[0].id }));
     } catch (err) {
       console.error("Maintenance load error:", err);
       setApiError(true);

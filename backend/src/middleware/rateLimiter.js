@@ -8,8 +8,9 @@ import { env } from '../config/env.js';
 export const apiLimiter = rateLimit({
   windowMs:         env.rateLimit.windowMs,
   max:              env.rateLimit.max,
-  standardHeaders:  true,   // Return rate limit info in `RateLimit-*` headers
+  standardHeaders:  true,
   legacyHeaders:    false,
+  skip:             () => env.isDev,   // disabled in development
   message: {
     success: false,
     message: 'Too many requests, please try again later.',
@@ -18,12 +19,14 @@ export const apiLimiter = rateLimit({
 
 /**
  * Stricter limiter for auth endpoints (login / register).
+ * Disabled in development so local testing is never blocked.
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max:      20,
+  windowMs:        15 * 60 * 1000, // 15 minutes
+  max:             20,
   standardHeaders: true,
   legacyHeaders:   false,
+  skip:            () => env.isDev,   // disabled in development
   message: {
     success: false,
     message: 'Too many authentication attempts, please try again later.',

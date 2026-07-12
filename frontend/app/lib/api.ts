@@ -201,11 +201,11 @@ export const categories = {
 // ─────────────────────────────────────────────────────────────────
 export const employees = {
   list: (params?: { role?: string; department_id?: string }) =>
-    request<Employee[]>("/employees", { params }),
+    request<{ users: Employee[]; total: number; limit: number; offset: number }>("/employees", { params }),
 
   get: (id: string) => request<Employee>(`/employees/${id}`),
 
-  updateProfile: (id: string, payload: { name?: string; phone?: string }) =>
+  updateProfile: (id: string, payload: { name?: string; phone?: string; department_id?: string }) =>
     request<Employee>(`/employees/${id}`, { method: "PATCH", body: payload }),
 
   setRole: (id: string, role: string) =>
@@ -231,7 +231,7 @@ export const assets = {
     is_bookable?: boolean;
     category_id?: string;
     department_id?: string;
-  }) => request<Asset[]>("/assets", { params }),
+  }) => request<{ assets: Asset[]; total: number; limit: number; offset: number }>("/assets", { params }),
 
   get: (id: string) => request<Asset>(`/assets/${id}`),
 
@@ -457,7 +457,7 @@ export const reports = {
 // ─────────────────────────────────────────────────────────────────
 export const notifications = {
   list: (params?: { is_read?: boolean; type?: string }) =>
-    request<Notification[]>("/notifications", { params }),
+    request<{ notifications: Notification[]; unread_count: number }>("/notifications", { params }),
 
   markRead: (id: string) =>
     request<Notification>(`/notifications/${id}/read`, { method: "PATCH" }),

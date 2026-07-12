@@ -7,8 +7,8 @@ export const ReportController = {
     try {
       const { rows } = await query(
         `SELECT
-           d.name                                        AS department,
-           COUNT(a.id)::int                              AS total_assets,
+           d.name                                        AS department_name,
+           COUNT(a.id)::int                              AS total,
            COUNT(CASE WHEN a.status = 'allocated'  THEN 1 END)::int AS allocated,
            COUNT(CASE WHEN a.status = 'available'  THEN 1 END)::int AS available,
            COUNT(CASE WHEN a.status = 'under_maintenance' THEN 1 END)::int AS under_maintenance,
@@ -33,16 +33,18 @@ export const ReportController = {
     try {
       const { rows } = await query(
         `SELECT
-           a.asset_tag, a.name, a.status,
+           a.asset_tag,
+           a.name AS asset_name,
+           a.status,
            ac.name AS category,
-           COUNT(b.id)::int AS booking_count,
+           COUNT(b.id)::int AS usage_count,
            MAX(b.created_at) AS last_booked
          FROM assets a
          LEFT JOIN bookings          b  ON b.asset_id = a.id
                                        AND b.created_at >= date_trunc('month', NOW())
          LEFT JOIN asset_categories  ac ON ac.id = a.category_id
          GROUP BY a.id, a.asset_tag, a.name, a.status, ac.name
-         ORDER BY booking_count DESC
+         ORDER BY usage_count DESC
          LIMIT 20`
       );
       ApiResponse.success(res, 200, rows, 'Most used assets');
@@ -57,7 +59,10 @@ export const ReportController = {
       const days = parseInt(req.query.days, 10) || 30;
       const { rows } = await query(
         `SELECT
-           a.asset_tag, a.name, a.status, a.location,
+           a.asset_tag,
+           a.name AS asset_name,
+           a.status,
+           a.location,
            ac.name AS category,
            d.name  AS department,
            MAX(al.returned_at)  AS last_returned,
@@ -66,7 +71,12 @@ export const ReportController = {
              MAX(al.returned_at),
              MAX(b.end_time),
              a.created_at
-           )::date AS last_activity
+           )::date AS last_activity,
+           (CURRENT_DATE - GREATEST(
+             MAX(al.returned_at),
+             MAX(b.end_time),
+             a.created_at
+           )::date)::int AS idle_days
          FROM assets a
          LEFT JOIN asset_categories ac ON ac.id = a.category_id
          LEFT JOIN departments       d  ON d.id  = a.department_id
@@ -79,7 +89,7 @@ export const ReportController = {
                   MAX(al.returned_at),
                   MAX(b.end_time),
                   a.created_at
-                ) <= NOW() - ($1 || ' days')::interval
+                ) <= NOW() - ($1 * INTERVAL '1 day')
          ORDER BY last_activity ASC
          LIMIT 50`,
         [days]
@@ -95,9 +105,10 @@ export const ReportController = {
     try {
       const { rows } = await query(
         `SELECT
-           a.asset_tag, a.name,
+           a.asset_tag,
+           a.name AS asset_name,
            ac.name AS category,
-           COUNT(mr.id)::int AS total_requests,
+           COUNT(mr.id)::int AS request_count,
            COUNT(CASE WHEN mr.status = 'resolved' THEN 1 END)::int AS resolved,
            COUNT(CASE WHEN mr.status IN ('pending','approved','in_progress') THEN 1 END)::int AS open,
            MAX(mr.created_at) AS last_request
@@ -106,7 +117,7 @@ export const ReportController = {
          LEFT JOIN asset_categories     ac ON ac.id = a.category_id
          GROUP BY a.id, a.asset_tag, a.name, ac.name
          HAVING COUNT(mr.id) > 0
-         ORDER BY total_requests DESC
+         ORDER BY request_count DESC
          LIMIT 30`
       );
       ApiResponse.success(res, 200, rows, 'Maintenance frequency by asset');
@@ -181,17 +192,19 @@ export const ReportController = {
     try {
       const { rows } = await query(
         `SELECT
-           d.name                                              AS department,
+           d.name                                              AS department_name,
            COUNT(al.id)::int                                   AS total_allocations,
-           COUNT(CASE WHEN al.is_active = true THEN 1 END)::int AS active_allocations,
+           COUNT(CASE WHEN al.is_active = true THEN 1 END)::int AS allocated_count,
            COUNT(CASE WHEN al.is_active = false THEN 1 END)::int AS returned_allocations,
            COUNT(CASE WHEN al.is_active = true
-                       AND al.expected_return_at < CURRENT_DATE THEN 1 END)::int AS overdue
+                       AND al.expected_return_at < CURRENT_DATE THEN 1 END)::int AS overdue,
+           COUNT(DISTINCT u.id)::int AS employee_count
          FROM departments d
          LEFT JOIN allocations al ON al.assigned_to_dept = d.id
+         LEFT JOIN users       u  ON u.department_id = d.id AND u.is_active = true
          WHERE d.status = 'active'
          GROUP BY d.id, d.name
-         ORDER BY active_allocations DESC`
+         ORDER BY allocated_count DESC`
       );
       ApiResponse.success(res, 200, rows, 'Department allocation summary');
     } catch (err) {
