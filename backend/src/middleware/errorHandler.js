@@ -23,7 +23,19 @@ export const errorHandler = (err, req, res, next) => {
 
   // PostgreSQL unique-constraint violation
   if (err.code === '23505') {
-    return ApiResponse.error(res, 409, 'A record with that value already exists.');
+    // err.constraint is the DB constraint name, e.g. "assets_serial_number_key"
+    // err.detail is like: Key (serial_number)=(SN-001) already exists.
+    const fieldMatch = err.detail?.match(/Key \((.+?)\)/);
+    const field = fieldMatch ? fieldMatch[1] : null;
+    const fieldLabel = field === 'serial_number' ? 'Serial number'
+                     : field === 'email'         ? 'Email address'
+                     : field === 'name'           ? 'Name'
+                     : field                      ? field.replace(/_/g, ' ')
+                     : null;
+    const message = fieldLabel
+      ? `${fieldLabel} already exists. Please use a different value.`
+      : 'A record with that value already exists.';
+    return ApiResponse.error(res, 409, message);
   }
 
   // PostgreSQL foreign-key violation

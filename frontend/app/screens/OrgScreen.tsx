@@ -15,6 +15,9 @@ import type {
   Employee,
 } from "../lib/types";
 import { required, hasErrors, isEmail, isStrongPassword } from "../lib/validation";
+import { Pagination } from "../components/ui/Pagination";
+
+const PAGE_SIZE = 10;
 
 type Tab = "departments" | "categories" | "employees";
 
@@ -46,9 +49,14 @@ export function OrgScreen() {
   const [deptErrors, setDeptErrors] = useState<Partial<DepartmentPayload>>({});
 
   // ── Delete confirm modal ──────────────────────────────────────────
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; type: "dept" | "cat"; assetCount?: number } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; type: "dept" | "cat" } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ── Pagination ────────────────────────────────────────────────────
+  const [deptPage, setDeptPage] = useState(1);
+  const [catPage,  setCatPage]  = useState(1);
+  const [empPage,  setEmpPage]  = useState(1);
 
   // ── Category modal ────────────────────────────────────────────────
   const [showCatModal, setCatModal] = useState(false);
@@ -254,8 +262,9 @@ export function OrgScreen() {
       setShowAddEmp(false);
       loadAll();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.toLowerCase().includes("already") || msg.includes("409")) {
+      const msg    = err instanceof Error ? err.message : "";
+      const status = (err as { status?: number }).status ?? 0;
+      if (status === 409 || msg.toLowerCase().includes("already") || msg.includes("409")) {
         setAddEmpErrors((prev) => ({ ...prev, email: "An account with this email already exists." }));
       } else {
         toast("Failed to add employee — " + (msg || "unknown error"), "error");
@@ -277,7 +286,7 @@ export function OrgScreen() {
           <button
             key={t}
             className={`tab-btn${tab === t ? " active" : ""}`}
-            onClick={() => setTab(t)}
+            onClick={() => { setTab(t); setDeptPage(1); setCatPage(1); setEmpPage(1); }}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -319,28 +328,24 @@ export function OrgScreen() {
                     key: "actions", header: "",
                     render: (d) => isAdmin ? (
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={(ev) => { ev.stopPropagation(); openEditDept(d); }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ color: "var(--danger)" }}
-                          onClick={(ev) => { ev.stopPropagation(); setDeleteError(null); setDeleteTarget({ id: d.id, name: d.name, type: "dept" }); }}
-                        >
-                          Delete
-                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); openEditDept(d); }}>Edit</button>
+                        <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} onClick={(ev) => { ev.stopPropagation(); setDeleteError(null); setDeleteTarget({ id: d.id, name: d.name, type: "dept" }); }}>Delete</button>
                       </div>
                     ) : null,
                   },
                 ]}
-                data={depts}
+                data={depts.slice((deptPage - 1) * PAGE_SIZE, deptPage * PAGE_SIZE)}
                 rowKey={(d) => d.id}
                 emptyMessage="No departments found."
               />
-              <p style={{ marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
+              <Pagination
+                page={deptPage}
+                totalPages={Math.ceil(depts.length / PAGE_SIZE)}
+                onChange={setDeptPage}
+                total={depts.length}
+                pageSize={PAGE_SIZE}
+              />
+              <p style={{ marginTop: 8, fontSize: 12, color: "var(--text-muted)" }}>
                 Editing a department here also drives the picklist in Asset Allocation &amp; Transfer.
               </p>
             </>
@@ -356,70 +361,72 @@ export function OrgScreen() {
                   key: "actions", header: "",
                   render: (c) => isAdmin ? (
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={(ev) => { ev.stopPropagation(); openEditCat(c); }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: "var(--danger)" }}
-                        onClick={(ev) => { ev.stopPropagation(); setDeleteError(null); setDeleteTarget({ id: c.id, name: c.name, type: "cat", assetCount: c.asset_count ?? 0 }); }}
-                      >
-                        Delete
-                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); openEditCat(c); }}>Edit</button>
+                      <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} onClick={(ev) => { ev.stopPropagation(); setDeleteError(null); setDeleteTarget({ id: c.id, name: c.name, type: "cat" }); }}>Delete</button>
                     </div>
                   ) : null,
                 },
               ]}
-              data={cats}
+              data={cats.slice((catPage - 1) * PAGE_SIZE, catPage * PAGE_SIZE)}
               rowKey={(c) => c.id}
               emptyMessage="No categories found."
+            />
+          )}
+          {tab === "categories" && (
+            <Pagination
+              page={catPage}
+              totalPages={Math.ceil(cats.length / PAGE_SIZE)}
+              onChange={setCatPage}
+              total={cats.length}
+              pageSize={PAGE_SIZE}
             />
           )}
 
           {/* ── Employees ───────────────────────────────────────── */}
           {tab === "employees" && (
-            <Table
-              columns={[
-                { key: "name",            header: "Name",       render: (e) => <strong>{e.name}</strong> },
-                { key: "email",           header: "Email",      render: (e) => <span style={{ color: "var(--text-secondary)" }}>{e.email}</span> },
-                { key: "department_name", header: "Department", render: (e) => e.department_name ?? "—" },
-                { key: "role",            header: "Role",       render: (e) => <RoleBadge role={e.role} /> },
-                {
-                  key: "is_active", header: "Status",
-                  render: (e) => (
-                    <span className={`badge badge-${e.is_active ? "green" : "gray"}`}>
-                      {e.is_active ? "Active" : "Inactive"}
-                    </span>
-                  ),
-                },
-                {
-                  key: "actions", header: "",
-                  render: (e) => isAdmin ? (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={(ev) => { ev.stopPropagation(); openEmpModal(e); }}
-                      >
-                        Role
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: e.is_active ? "var(--danger)" : "var(--accent-hover)" }}
-                        onClick={(ev) => { ev.stopPropagation(); toggleEmpStatus(e); }}
-                      >
-                        {e.is_active ? "Deactivate" : "Reactivate"}
-                      </button>
-                    </div>
-                  ) : null,
-                },
-              ]}
-              data={emps}
-              rowKey={(e) => e.id}
-              emptyMessage="No employees found."
-            />
+            <>
+              <Table
+                columns={[
+                  { key: "name",            header: "Name",       render: (e) => <strong>{e.name}</strong> },
+                  { key: "email",           header: "Email",      render: (e) => <span style={{ color: "var(--text-secondary)" }}>{e.email}</span> },
+                  { key: "department_name", header: "Department", render: (e) => e.department_name ?? "—" },
+                  { key: "role",            header: "Role",       render: (e) => <RoleBadge role={e.role} /> },
+                  {
+                    key: "is_active", header: "Status",
+                    render: (e) => (
+                      <span className={`badge badge-${e.is_active ? "green" : "gray"}`}>
+                        {e.is_active ? "Active" : "Inactive"}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "actions", header: "",
+                    render: (e) => isAdmin ? (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={(ev) => { ev.stopPropagation(); openEmpModal(e); }}>Role</button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: e.is_active ? "var(--danger)" : "var(--accent-hover)" }}
+                          onClick={(ev) => { ev.stopPropagation(); toggleEmpStatus(e); }}
+                        >
+                          {e.is_active ? "Deactivate" : "Reactivate"}
+                        </button>
+                      </div>
+                    ) : null,
+                  },
+                ]}
+                data={emps.slice((empPage - 1) * PAGE_SIZE, empPage * PAGE_SIZE)}
+                rowKey={(e) => e.id}
+                emptyMessage="No employees found."
+              />
+              <Pagination
+                page={empPage}
+                totalPages={Math.ceil(emps.length / PAGE_SIZE)}
+                onChange={setEmpPage}
+                total={emps.length}
+                pageSize={PAGE_SIZE}
+              />
+            </>
           )}
         </>
       )}
@@ -497,53 +504,33 @@ export function OrgScreen() {
           onClose={() => { setDeleteTarget(null); setDeleteError(null); }}
           width={420}
         >
-          {/* Pre-flight warning for categories with assets */}
-          {deleteTarget.type === "cat" && (deleteTarget.assetCount ?? 0) > 0 ? (
-            <>
-              <div style={{ background: "var(--danger-light, #fef2f2)", border: "1px solid var(--danger)", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
-                <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: "var(--danger)" }}>
-                  Cannot delete — {deleteTarget.assetCount} asset{deleteTarget.assetCount !== 1 ? "s" : ""} assigned
-                </p>
-                <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
-                  Reassign or retire all assets in the <strong>{deleteTarget.name}</strong> category before deleting it.
-                  Go to the <strong>Assets</strong> tab to update each asset's category.
-                </p>
-              </div>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button className="btn btn-outline" onClick={() => { setDeleteTarget(null); setDeleteError(null); }}>
-                  Close
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 16 }}>
-                Are you sure you want to delete{" "}
-                <strong style={{ color: "var(--text-primary)" }}>{deleteTarget.name}</strong>?
-                {deleteTarget.type === "dept" && (
-                  <span style={{ display: "block", marginTop: 6, fontSize: 12.5, color: "var(--text-muted)" }}>
-                    This will fail if the department still has active employees.
-                  </span>
-                )}
-              </p>
+          <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 16 }}>
+            Are you sure you want to delete{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{deleteTarget.name}</strong>?
+            {deleteTarget.type === "dept" && (
+              <span style={{ display: "block", marginTop: 6, fontSize: 12.5, color: "var(--text-muted)" }}>
+                This will fail if the department still has active employees.
+              </span>
+            )}
+            {deleteTarget.type === "cat" && (
+              <span style={{ display: "block", marginTop: 6, fontSize: 12.5, color: "var(--text-muted)" }}>
+                This will fail if any assets still belong to this category.
+              </span>
+            )}
+          </p>
 
-              {/* Inline error from API */}
-              {deleteError && (
-                <div style={{ background: "var(--danger-light, #fef2f2)", border: "1px solid var(--danger)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--danger)" }}>
-                  {deleteError}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button className="btn btn-outline" onClick={() => { setDeleteTarget(null); setDeleteError(null); }}>
-                  Cancel
-                </button>
-                <button className="btn btn-danger" onClick={confirmDelete} disabled={deleting}>
-                  {deleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Delete"}
-                </button>
-              </div>
-            </>
+          {deleteError && (
+            <div style={{ background: "var(--danger-light)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--danger)" }}>
+              {deleteError}
+            </div>
           )}
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button className="btn btn-outline" onClick={() => { setDeleteTarget(null); setDeleteError(null); }}>Cancel</button>
+            <button className="btn btn-danger" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Delete"}
+            </button>
+          </div>
         </Modal>
       )}
 

@@ -12,6 +12,10 @@ import { EmptyState } from "../components/ui/Table";
 import type { Asset, Category, AssetPayload, AssetStatus, AssetCondition } from "../lib/types";
 import { validateAsset, hasErrors, type AssetForm } from "../lib/validation";
 
+import { Pagination } from "../components/ui/Pagination";
+
+const PAGE_SIZE = 10;
+
 const STATUS_OPTIONS: { value: AssetStatus | ""; label: string }[] = [
   { value: "",                  label: "All Status"        },
   { value: "available",         label: "Available"         },
@@ -50,7 +54,8 @@ export function AssetsScreen() {
     name: "", category_id: "", condition: "good",
     location: "", acquisition_cost: "", serial_number: "",
   });
-  const [formErrors, setFormErrors] = useState<Partial<AssetForm>>({});
+  const [formErrors,    setFormErrors]    = useState<Partial<AssetForm>>({});
+  const [registerError, setRegisterError] = useState<string | null>(null);
   const [isBookable, setIsBookable]       = useState(false);
   const [acquisitionDate, setAcquisitionDate] = useState("");
   const [notes, setNotes]                 = useState("");
@@ -58,6 +63,9 @@ export function AssetsScreen() {
 
   // Detail drawer
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
+
+  // Pagination
+  const [page, setPage] = useState(1);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -92,10 +100,17 @@ export function AssetsScreen() {
     return matchQ && matchC && matchS;
   });
 
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [search, catFilter, statFilter]);
+
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   // ─── Register asset ───────────────────────────────────────────────
   function openRegister() {
     setForm({ name: "", category_id: catList[0]?.id ?? "", condition: "good", location: "", acquisition_cost: "", serial_number: "" });
     setFormErrors({});
+    setRegisterError(null);
     setIsBookable(false);
     setAcquisitionDate("");
     setNotes("");
@@ -105,6 +120,7 @@ export function AssetsScreen() {
   async function submitRegister() {
     const errors = validateAsset(form);
     setFormErrors(errors);
+    setRegisterError(null);
     if (hasErrors(errors)) return;
 
     setSubmitting(true);
@@ -126,9 +142,25 @@ export function AssetsScreen() {
       setShowRegister(false);
       loadData();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
+      const msg    = err instanceof Error ? err.message : "Failed to register asset";
+      const status = (err as { status?: number }).status ?? 0;
       console.error("Asset create error:", err);
-      toast(msg || "Failed to register asset", "error");
+
+      if (status === 409 || msg.toLowerCase().includes("already exists") || msg.toLowerCase().includes("duplicate")) {
+        // Map the field from the backend message
+        const isSerial = msg.toLowerCase().includes("serial");
+        const isName   = msg.toLowerCase().includes("name");
+        if (isSerial) {
+          setFormErrors((prev) => ({ ...prev, serial_number: "This serial number is already registered." }));
+        } else if (isName) {
+          setFormErrors((prev) => ({ ...prev, name: "An asset with this name already exists." }));
+        } else {
+          setFormErrors((prev) => ({ ...prev, serial_number: "This value is already in use by another asset." }));
+        }
+        setRegisterError(msg);
+      } else {
+        setRegisterError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -230,7 +262,7 @@ export function AssetsScreen() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a, i) => (
+              {pageItems.map((a, i) => (
                 <tr
                   key={a.id}
                   className={`animate-fade-up stagger-${Math.min(i + 1, 6)} clickable`}
@@ -248,15 +280,24 @@ export function AssetsScreen() {
               ))}
             </tbody>
           </table>
-          <div style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
-            Showing {filtered.length} of {assetList.length} assets
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onChange={setPage}
+            total={filtered.length}
+            pageSize={PAGE_SIZE}
+          />
         </div>
       )}
 
       {/* ── Register Modal ─────────────────────────────────────────── */}
       {showRegister && (
-        <Modal title="Register Asset" onClose={() => setShowRegister(false)} width={520}>
+        <Modal title="Register Asset" onClose={() => { setShowRegister(false); setRegisterError(null); }} width={520}>
+          {registerError && (
+            <div style={{ background: "var(--danger-light)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--danger)" }}>
+              {registerError}
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
             <div style={{ gridColumn: "1 / -1" }}>
               <FormField label="Asset Name" error={formErrors.name} required>

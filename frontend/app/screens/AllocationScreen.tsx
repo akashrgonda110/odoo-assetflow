@@ -1,5 +1,9 @@
 "use client";
 
+import { Pagination } from "../components/ui/Pagination";
+
+const PAGE_SIZE = 10;
+
 import { useState, useEffect, useCallback } from "react";
 import { assets as assetsApi, allocations, employees, departments as departmentsApi } from "../lib/api";
 import { useToast } from "../components/ui/Toast";
@@ -42,6 +46,10 @@ export function AllocationScreen() {
   const [returnAlloc,    setReturnAlloc]  = useState<Allocation | null>(null);
   const [returnForm,     setReturnForm]   = useState<ReturnPayload>({ return_condition: "good" });
   const [returnErrors,   setReturnErrors] = useState<Partial<ReturnPayload>>({});
+
+  // Pagination for active allocations and transfers tables
+  const [allocPage,    setAllocPage]    = useState(1);
+  const [transferPage, setTransferPage] = useState(1);
 
   const selectedAsset = assetList.find((a) => a.id === selectedAssetId);
   const isAllocated   = selectedAsset?.status === "allocated";
@@ -373,38 +381,48 @@ export function AllocationScreen() {
 
 
           {/* Active allocations table */}
-          {allocList.filter((a) => a.is_active).length > 0 && (
-            <>
-              <h2 className="section-title" style={{ fontSize: 15, marginTop: 28 }}>Active Allocations</h2>
-              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-                <table className="af-table">
-                  <thead>
-                    <tr><th>Asset</th><th>Assigned To</th><th>Expected Return</th><th>Overdue</th><th></th></tr>
-                  </thead>
-                  <tbody>
-                    {allocList.filter((a) => a.is_active).map((a, i) => (
-                      <tr key={a.id} className={`animate-fade-up stagger-${Math.min(i+1,6)}`}>
-                        <td style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12.5 }}>{a.asset_tag}</td>
-                        <td>{a.assigned_to_user_name ?? a.assigned_to_dept_name ?? "—"}</td>
-                        <td style={{ color: "var(--text-secondary)" }}>
-                          {a.expected_return_at ? new Date(a.expected_return_at).toLocaleDateString() : "—"}
-                        </td>
-                        <td>
-                          {a.is_overdue && <span className="badge badge-red">Overdue</span>}
-                        </td>
-                        <td>
-                          <button className="btn btn-ghost btn-sm"
-                            onClick={() => { setReturnAlloc(a); setReturnForm({ return_condition: "good" }); }}>
-                            Return
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+          {allocList.filter((a) => a.is_active).length > 0 && (() => {
+            const activeAllocs = allocList.filter((a) => a.is_active);
+            const totalPages   = Math.max(1, Math.ceil(activeAllocs.length / PAGE_SIZE));
+            const pageItems    = activeAllocs.slice((allocPage - 1) * PAGE_SIZE, allocPage * PAGE_SIZE);
+            return (
+              <>
+                <h2 className="section-title" style={{ fontSize: 15, marginTop: 28 }}>Active Allocations</h2>
+                <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                  <table className="af-table">
+                    <thead>
+                      <tr><th>Asset</th><th>Assigned To</th><th>Expected Return</th><th>Overdue</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((a, i) => (
+                        <tr key={a.id} className={`animate-fade-up stagger-${Math.min(i+1,6)}`}>
+                          <td style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12.5 }}>{a.asset_tag}</td>
+                          <td>{a.assigned_to_user_name ?? a.assigned_to_dept_name ?? "—"}</td>
+                          <td style={{ color: "var(--text-secondary)" }}>
+                            {a.expected_return_at ? new Date(a.expected_return_at).toLocaleDateString() : "—"}
+                          </td>
+                          <td>{a.is_overdue && <span className="badge badge-red">Overdue</span>}</td>
+                          <td>
+                            <button className="btn btn-ghost btn-sm"
+                              onClick={() => { setReturnAlloc(a); setReturnForm({ return_condition: "good" }); }}>
+                              Return
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <Pagination
+                    page={allocPage}
+                    totalPages={totalPages}
+                    onChange={setAllocPage}
+                    total={activeAllocs.length}
+                    pageSize={PAGE_SIZE}
+                  />
+                </div>
+              </>
+            );
+          })()}
         </>
       ) : (
         /* ── Transfers Tab ──────────────────────────────────────── */
@@ -413,36 +431,47 @@ export function AllocationScreen() {
             <div style={{ padding: "32px 0", textAlign: "center", color: "var(--text-muted)" }}>
               No transfer requests yet.
             </div>
-          ) : (
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              <table className="af-table">
-                <thead>
-                  <tr><th>Asset</th><th>From</th><th>To</th><th>Reason</th><th>Status</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {transferList.map((t, i) => (
-                    <tr key={t.id} className={`animate-fade-up stagger-${Math.min(i+1,6)}`}>
-                      <td style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12.5 }}>{t.asset_tag}</td>
-                      <td>{t.from_user_name ?? "—"}</td>
-                      <td>{t.to_user_name ?? t.to_user_id}</td>
-                      <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
-                        {t.reason}
-                      </td>
-                      <td><TransferStatusBadge status={t.status} /></td>
-                      <td>
-                        {t.status === "pending" && (
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button className="btn btn-sm btn-primary" onClick={() => approveTransfer(t.id)}>Approve</button>
-                            <button className="btn btn-sm btn-outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => rejectTransfer(t.id)}>Reject</button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          ) : (() => {
+            const totalPages = Math.max(1, Math.ceil(transferList.length / PAGE_SIZE));
+            const pageItems  = transferList.slice((transferPage - 1) * PAGE_SIZE, transferPage * PAGE_SIZE);
+            return (
+              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <table className="af-table">
+                  <thead>
+                    <tr><th>Asset</th><th>From</th><th>To</th><th>Reason</th><th>Status</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.map((t, i) => (
+                      <tr key={t.id} className={`animate-fade-up stagger-${Math.min(i+1,6)}`}>
+                        <td style={{ fontWeight: 600, fontFamily: "monospace", fontSize: 12.5 }}>{t.asset_tag}</td>
+                        <td>{t.from_user_name ?? "—"}</td>
+                        <td>{t.to_user_name ?? t.to_user_id}</td>
+                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
+                          {t.reason}
+                        </td>
+                        <td><TransferStatusBadge status={t.status} /></td>
+                        <td>
+                          {t.status === "pending" && (
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button className="btn btn-sm btn-primary" onClick={() => approveTransfer(t.id)}>Approve</button>
+                              <button className="btn btn-sm btn-outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => rejectTransfer(t.id)}>Reject</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <Pagination
+                  page={transferPage}
+                  totalPages={totalPages}
+                  onChange={setTransferPage}
+                  total={transferList.length}
+                  pageSize={PAGE_SIZE}
+                />
+              </div>
+            );
+          })()}
         </>
       )}
 

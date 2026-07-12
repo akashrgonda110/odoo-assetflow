@@ -10,6 +10,10 @@ import { Spinner } from "../components/ui/Spinner";
 import type { MaintenanceRequest, Asset, Employee, MaintenanceStatus, Priority } from "../lib/types";
 import { validateMaintenance, hasErrors } from "../lib/validation";
 
+import { Pagination } from "../components/ui/Pagination";
+
+const PAGE_SIZE = 10;
+
 const KANBAN_COLS: { key: MaintenanceStatus; label: string }[] = [
   { key: "pending",             label: "Pending"             },
   { key: "approved",            label: "Approved"            },
@@ -49,6 +53,7 @@ export function MaintenanceScreen() {
   // View filter
   const [view, setView] = useState<"kanban" | "list">("kanban");
   const [statusFilter, setStatusFilter] = useState<MaintenanceStatus | "all">("all");
+  const [listPage, setListPage] = useState(1);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -171,6 +176,9 @@ export function MaintenanceScreen() {
   const displayRequests =
     statusFilter === "all" ? requests : requests.filter((r) => r.status === statusFilter);
 
+  const totalListPages = Math.max(1, Math.ceil(displayRequests.length / PAGE_SIZE));
+  const listPageItems  = displayRequests.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
+
   return (
     <div className="animate-fade-up">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -182,14 +190,14 @@ export function MaintenanceScreen() {
 
       {/* View & filter controls */}
       <div className="tab-bar" style={{ marginBottom: 20, marginTop: 16, gap: 6 }}>
-        <button className={`tab-btn${view === "kanban" ? " active" : ""}`} onClick={() => setView("kanban")}>Kanban</button>
-        <button className={`tab-btn${view === "list"   ? " active" : ""}`} onClick={() => setView("list")}>List</button>
+        <button className={`tab-btn${view === "kanban" ? " active" : ""}`} onClick={() => { setView("kanban"); setListPage(1); }}>Kanban</button>
+        <button className={`tab-btn${view === "list"   ? " active" : ""}`} onClick={() => { setView("list");   setListPage(1); }}>List</button>
         {view === "list" && (
           <>
             <span style={{ width: 1, background: "var(--border)", margin: "0 4px", alignSelf: "stretch" }} />
-            <button className={`tab-btn${statusFilter === "all" ? " active" : ""}`} onClick={() => setStatusFilter("all")}>All</button>
+            <button className={`tab-btn${statusFilter === "all" ? " active" : ""}`} onClick={() => { setStatusFilter("all"); setListPage(1); }}>All</button>
             {KANBAN_COLS.map((c) => (
-              <button key={c.key} className={`tab-btn${statusFilter === c.key ? " active" : ""}`} onClick={() => setStatusFilter(c.key)}>{c.label}</button>
+              <button key={c.key} className={`tab-btn${statusFilter === c.key ? " active" : ""}`} onClick={() => { setStatusFilter(c.key); setListPage(1); }}>{c.label}</button>
             ))}
           </>
         )}
@@ -275,9 +283,9 @@ export function MaintenanceScreen() {
               <tr><th>Asset</th><th>Issue</th><th>Priority</th><th>Status</th><th>Raised By</th><th></th></tr>
             </thead>
             <tbody>
-              {displayRequests.length === 0 ? (
+              {listPageItems.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: "center", padding: 32, color: "var(--text-muted)" }}>No requests found.</td></tr>
-              ) : displayRequests.map((r, i) => (
+              ) : listPageItems.map((r, i) => (
                 <tr key={r.id} className={`animate-fade-up stagger-${Math.min(i+1,6)}`}>
                   <td style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 12.5 }}>{r.asset_tag}</td>
                   <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.issue_desc}</td>
@@ -299,6 +307,13 @@ export function MaintenanceScreen() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={listPage}
+            totalPages={totalListPages}
+            onChange={setListPage}
+            total={displayRequests.length}
+            pageSize={PAGE_SIZE}
+          />
         </div>
       )}
 
