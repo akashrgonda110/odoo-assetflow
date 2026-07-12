@@ -121,7 +121,7 @@ export const AllocationModel = {
        FROM allocations
        WHERE is_active = true
          AND expected_return_at IS NOT NULL
-         AND expected_return_at BETWEEN CURRENT_DATE AND CURRENT_DATE + $1`,
+         AND expected_return_at BETWEEN CURRENT_DATE AND CURRENT_DATE + ($1 * INTERVAL '1 day')`,
       [days]
     );
     return rows[0].count;

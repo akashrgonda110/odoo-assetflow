@@ -63,8 +63,10 @@ export function AssetsScreen() {
     setApiError(false);
     try {
       const [aRes, cRes] = await Promise.all([assetsApi.list(), categories.list()]);
-      setAssets(aRes.data);
-      setCats(cRes.data);
+      // Backend returns a paginated envelope: { assets: [...], total, limit, offset }
+      const assetData = aRes.data?.assets ?? [];
+      setAssets(Array.isArray(assetData) ? assetData : []);
+      setCats(Array.isArray(cRes.data) ? cRes.data : []);
     } catch (err) {
       console.error("Assets load error:", err);
       setApiError(true);

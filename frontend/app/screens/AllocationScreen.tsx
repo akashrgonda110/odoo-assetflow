@@ -56,11 +56,15 @@ export function AllocationScreen() {
         allocations.list(),
         allocations.listTransfers(),
       ]);
-      setAssets(aRes.data);
-      setEmps(eRes.data);
-      setAllocs(alRes.data);
-      setTransfers(trRes.data);
-      if (aRes.data.length > 0) setSelectedAssetId(aRes.data[0].id);
+      // assets.list() returns a paginated envelope: { assets: [...], total, limit, offset }
+      const assetData = Array.isArray(aRes.data)
+        ? aRes.data
+        : (aRes.data as unknown as { assets: Asset[] })?.assets ?? [];
+      setAssets(assetData);
+      setEmps(eRes.data?.users ?? []);
+      setAllocs(Array.isArray(alRes.data) ? alRes.data : []);
+      setTransfers(Array.isArray(trRes.data) ? trRes.data : []);
+      if (assetData.length > 0) setSelectedAssetId(assetData[0].id);
     } catch (err) {
       console.error("Allocation load error:", err);
       setApiError(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { departments, categories, employees } from "../lib/api";
+import { departments, categories, employees, auth as authApi } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useToast } from "../components/ui/Toast";
 import { Modal } from "../components/ui/Modal";
@@ -14,9 +14,20 @@ import type {
   Category, CategoryPayload,
   Employee,
 } from "../lib/types";
-import { required, hasErrors } from "../lib/validation";
+import {
+  required, hasErrors, isEmail, isStrongPassword,
+} from "../lib/validation";
 
 type Tab = "departments" | "categories" | "employees";
+
+interface AddEmpForm {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  department_id: string;
+}
+type AddEmpErrors = Partial<Record<keyof AddEmpForm, string>>;
 
 
 
@@ -49,6 +60,12 @@ export function OrgScreen() {
   const [editingEmp, setEditEmp]      = useState<Employee | null>(null);
   const [empRole, setEmpRole]         = useState("");
 
+  // Add Employee modal
+  const [showAddEmp, setShowAddEmp]     = useState(false);
+  const [addEmpForm, setAddEmpForm]     = useState<AddEmpForm>({ name: "", email: "", password: "", role: "employee", department_id: "" });
+  const [addEmpErrors, setAddEmpErrors] = useState<AddEmpErrors>({});
+  const [addEmpSubmitting, setAddEmpSubmitting] = useState(false);
+
   // ─── Load data ────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -59,9 +76,10 @@ export function OrgScreen() {
         categories.list(),
         employees.list(),
       ]);
-      setDepts(dRes.data);
-      setCats(cRes.data);
-      setEmps(eRes.data);
+      setDepts(Array.isArray(dRes.data) ? dRes.data : []);
+      setCats(Array.isArray(cRes.data) ? cRes.data : []);
+      // employees.list() returns a paginated envelope: { users: [...], total, limit, offset }
+      setEmps(eRes.data?.users ?? []);
     } catch (err) {
       console.error("Org load error:", err);
       setApiError(true);
@@ -187,6 +205,56 @@ export function OrgScreen() {
     }
   }
 
+  // ─── Add Employee ─────────────────────────────────────────────────
+  function openAddEmp() {
+    setAddEmpForm({ name: "", email: "", password: "", role: "employee", department_id: depts[0]?.id ?? "" });
+    setAddEmpErrors({});
+    setShowAddEmp(true);
+  }
+
+  async function saveAddEmp() {
+    const e: AddEmpErrors = {};
+    e.name     = required(addEmpForm.name, "Name") ?? (addEmpForm.name.trim().length < 2 ? "Name must be at least 2 characters." : undefined);
+    e.email    = required(addEmpForm.email, "Email") ?? isEmail(addEmpForm.email);
+    e.password = required(addEmpForm.password, "Password") ?? isStrongPassword(addEmpForm.password);
+    e.role     = required(addEmpForm.role, "Role");
+    setAddEmpErrors(e);
+    if (hasErrors(e)) return;
+
+    setAddEmpSubmitting(true);
+    try {
+      // Register the user via the auth endpoint
+      const res = await authApi.register({
+        name:     addEmpForm.name.trim(),
+        email:    addEmpForm.email.trim(),
+        password: addEmpForm.password,
+      });
+      // If a non-default role or department was chosen, update them immediately
+      if (addEmpForm.role !== "employee" || addEmpForm.department_id) {
+        const userId = res.data.user.id;
+        if (addEmpForm.role !== "employee") {
+          await employees.setRole(userId, addEmpForm.role);
+        }
+        if (addEmpForm.department_id) {
+          await employees.updateProfile(userId, { department_id: addEmpForm.department_id });
+        }
+      }
+      toast(`Employee "${addEmpForm.name}" added successfully`);
+      setShowAddEmp(false);
+      loadAll();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.toLowerCase().includes("already") || msg.includes("409")) {
+        setAddEmpErrors((prev) => ({ ...prev, email: "An account with this email already exists." }));
+      } else {
+        toast("Failed to add employee — " + (msg || "unknown error"), "error");
+      }
+      console.error("Add employee error:", err);
+    } finally {
+      setAddEmpSubmitting(false);
+    }
+  }
+
   return (
     <div className="animate-fade-up">
       <h1 className="page-title">Organization Setup</h1>
@@ -209,7 +277,7 @@ export function OrgScreen() {
             onClick={
               tab === "departments" ? openAddDept
               : tab === "categories" ? openAddCat
-              : undefined
+              : openAddEmp
             }
           >
             + Add
@@ -401,6 +469,86 @@ export function OrgScreen() {
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
             <button className="btn btn-outline" onClick={() => setEmpModal(false)}>Cancel</button>
             <button className="btn btn-primary" onClick={saveEmpRole}>Promote</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Add Employee Modal ────────────────────────────────────── */}
+      {showAddEmp && (
+        <Modal title="Add Employee" onClose={() => setShowAddEmp(false)} width={480}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FormField label="Full Name" error={addEmpErrors.name} required>
+                <Input
+                  value={addEmpForm.name}
+                  error={addEmpErrors.name}
+                  placeholder="e.g. Jane Smith"
+                  onChange={(e) => setAddEmpForm({ ...addEmpForm, name: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FormField label="Email Address" error={addEmpErrors.email} required>
+                <Input
+                  type="email"
+                  value={addEmpForm.email}
+                  error={addEmpErrors.email}
+                  placeholder="e.g. jane@company.com"
+                  onChange={(e) => setAddEmpForm({ ...addEmpForm, email: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FormField label="Password" error={addEmpErrors.password} required>
+                <Input
+                  type="password"
+                  value={addEmpForm.password}
+                  error={addEmpErrors.password}
+                  placeholder="Min 8 chars, 1 uppercase, 1 number"
+                  onChange={(e) => setAddEmpForm({ ...addEmpForm, password: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Role" error={addEmpErrors.role} required>
+              <Select
+                value={addEmpForm.role}
+                error={addEmpErrors.role}
+                options={[
+                  { value: "employee",        label: "Employee"        },
+                  { value: "department_head", label: "Department Head" },
+                  { value: "asset_manager",   label: "Asset Manager"   },
+                  { value: "admin",           label: "Admin"           },
+                ]}
+                onChange={(e) => setAddEmpForm({ ...addEmpForm, role: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Department">
+              <Select
+                value={addEmpForm.department_id}
+                placeholder="None"
+                options={depts.map((d) => ({ value: d.id, label: d.name }))}
+                onChange={(e) => setAddEmpForm({ ...addEmpForm, department_id: e.target.value })}
+              />
+            </FormField>
+          </div>
+
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+            The employee will be able to log in immediately with these credentials.
+          </p>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
+            <button className="btn btn-outline" onClick={() => setShowAddEmp(false)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={saveAddEmp} disabled={addEmpSubmitting}>
+              {addEmpSubmitting
+                ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Adding…</>
+                : "Add Employee"}
+            </button>
           </div>
         </Modal>
       )}

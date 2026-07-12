@@ -59,13 +59,20 @@ export function NotificationsScreen({ onUnreadChange }: NotificationsScreenProps
     setLoading(true);
     setApiError(false);
     try {
-      const [nRes, lRes] = await Promise.all([
-        notifApi.list(),
-        activityLogs.list(),
-      ]);
-      setNotifs(nRes.data);
-      setLogs(lRes.data);
-      onUnreadChange(nRes.data.filter((n) => !n.is_read).length);
+      // Fetch notifications — always available to all authenticated users
+      const nRes = await notifApi.list();
+      // Backend returns { notifications: [...], unread_count: N }
+      const notifData: Notification[] = nRes.data?.notifications ?? [];
+      setNotifs(notifData);
+      onUnreadChange(nRes.data?.unread_count ?? notifData.filter((n) => !n.is_read).length);
+
+      // Activity logs are admin/asset_manager only — silently skip on 403
+      try {
+        const lRes = await activityLogs.list();
+        setLogs(Array.isArray(lRes.data) ? lRes.data : []);
+      } catch {
+        setLogs([]); // non-admin users get a 403 — just show empty logs
+      }
     } catch (err) {
       console.error("Notifications load error:", err);
       setApiError(true);

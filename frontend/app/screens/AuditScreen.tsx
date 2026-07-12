@@ -44,9 +44,12 @@ export function AuditScreen() {
         employees.list(),
       ]);
       setCycles(cRes.data);
-      setAssets(aRes.data);
-      setEmps(eRes.data);
-      if (cRes.data.length > 0) setActiveCycle(cRes.data[0]);
+      const assetData = Array.isArray(aRes.data)
+        ? aRes.data
+        : (aRes.data as unknown as { assets: Asset[] })?.assets ?? [];
+      setAssets(assetData);
+      setEmps(eRes.data?.users ?? []);
+      if (Array.isArray(cRes.data) && cRes.data.length > 0) setActiveCycle(cRes.data[0]);
     } catch (err) {
       console.error("Audit load error:", err);
       setApiError(true);

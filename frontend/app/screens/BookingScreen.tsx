@@ -49,9 +49,12 @@ export function BookingScreen() {
         assetsApi.list({ is_bookable: true }),
         bookingsApi.list(),
       ]);
-      setAssets(aRes.data);
-      setBookings(bRes.data);
-      if (aRes.data.length > 0) setSelectedId(aRes.data[0].id);
+      const assetData = Array.isArray(aRes.data)
+        ? aRes.data
+        : (aRes.data as unknown as { assets: Asset[] })?.assets ?? [];
+      setAssets(assetData);
+      setBookings(Array.isArray(bRes.data) ? bRes.data : []);
+      if (assetData.length > 0) setSelectedId(assetData[0].id);
     } catch (err) {
       console.error("Booking load error:", err);
       setApiError(true);
