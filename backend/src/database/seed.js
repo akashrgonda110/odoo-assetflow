@@ -20,23 +20,31 @@ import { logger } from '../utils/logger.js';
     const headHash    = await bcrypt.hash('Head@1234', 12);
     const empHash     = await bcrypt.hash('Employee@1234', 12);
 
-    await client.query(`
-      INSERT INTO users (name, email, password, role) VALUES
-        ('Super Admin',    'admin@assetflow.com',    $1, 'admin'),
-        ('Raj Mehta',      'raj@assetflow.com',      $2, 'asset_manager'),
-        ('Priya Shah',     'priya@assetflow.com',    $3, 'asset_manager'),
-        ('Aditi Rao',      'aditi@assetflow.com',    $4, 'department_head'),
-        ('Rohan Mehta',    'rohan@assetflow.com',    $4, 'department_head'),
-        ('Sana Iqbal',     'sana@assetflow.com',     $4, 'department_head'),
-        ('Arjun Nair',     'arjun@assetflow.com',    $5, 'employee'),
-        ('Meena Pillai',   'meena@assetflow.com',    $5, 'employee'),
-        ('Vikram Das',     'vikram@assetflow.com',   $5, 'employee'),
-        ('Divya Kumar',    'divya@assetflow.com',    $5, 'employee')
-      ON CONFLICT (email) DO UPDATE
-        SET password = EXCLUDED.password,
-            role     = EXCLUDED.role,
-            name     = EXCLUDED.name
-    `, [adminHash, managerHash, headHash, empHash]);
+    // Insert each user separately to avoid parameter mismatch with multi-row VALUES
+    const userSeeds = [
+      { name: 'Super Admin',  email: 'admin@assetflow.com',  hash: adminHash,   role: 'admin' },
+      { name: 'Raj Mehta',    email: 'raj@assetflow.com',    hash: managerHash, role: 'asset_manager' },
+      { name: 'Priya Shah',   email: 'priya@assetflow.com',  hash: managerHash, role: 'asset_manager' },
+      { name: 'Aditi Rao',    email: 'aditi@assetflow.com',  hash: headHash,    role: 'department_head' },
+      { name: 'Rohan Mehta',  email: 'rohan@assetflow.com',  hash: headHash,    role: 'department_head' },
+      { name: 'Sana Iqbal',   email: 'sana@assetflow.com',   hash: headHash,    role: 'department_head' },
+      { name: 'Arjun Nair',   email: 'arjun@assetflow.com',  hash: empHash,     role: 'employee' },
+      { name: 'Meena Pillai', email: 'meena@assetflow.com',  hash: empHash,     role: 'employee' },
+      { name: 'Vikram Das',   email: 'vikram@assetflow.com', hash: empHash,     role: 'employee' },
+      { name: 'Divya Kumar',  email: 'divya@assetflow.com',  hash: empHash,     role: 'employee' },
+    ];
+
+    for (const u of userSeeds) {
+      await client.query(
+        `INSERT INTO users (name, email, password, role)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO UPDATE
+           SET password = EXCLUDED.password,
+               role     = EXCLUDED.role,
+               name     = EXCLUDED.name`,
+        [u.name, u.email, u.hash, u.role]
+      );
+    }
 
     // ─── Departments ──────────────────────────────────────────────────────────
     logger.info('Seeding departments…');

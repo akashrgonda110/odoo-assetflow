@@ -10,15 +10,6 @@ import { Spinner } from "../components/ui/Spinner";
 import type { MaintenanceRequest, Asset, Employee, MaintenanceStatus, Priority } from "../lib/types";
 import { validateMaintenance, hasErrors } from "../lib/validation";
 
-// ─── Mock data ─────────────────────────────────────────────────────
-const MOCK_REQUESTS: MaintenanceRequest[] = [
-  { id:"1", asset_id:"2", asset_tag:"AF-0062", asset_name:"Projector",     issue_desc:"Projector bulb not turning on",  priority:"high",   status:"pending",             raised_by_name:"Priya Shah",  created_at:"2026-07-10T08:00:00Z" },
-  { id:"2", asset_id:"4", asset_tag:"AF-003",  asset_name:"AC Unit",       issue_desc:"AC unit making noisy compressor sounds", priority:"medium", status:"approved",      raised_by_name:"Sana Iqbal",  created_at:"2026-07-08T10:00:00Z" },
-  { id:"3", asset_id:"5", asset_tag:"AF-0078", asset_name:"Forklift",      issue_desc:"Forklift hydraulics slow to respond",    priority:"high",   status:"technician_assigned", assigned_to_name:"R. Varma", created_at:"2026-07-06T14:00:00Z" },
-  { id:"4", asset_id:"6", asset_tag:"AF-897",  asset_name:"Printer",       issue_desc:"Printer jam – parts ordered",     priority:"low",    status:"in_progress",         raised_by_name:"Aditi Rao",   created_at:"2026-07-04T09:00:00Z" },
-  { id:"5", asset_id:"7", asset_tag:"AF-873",  asset_name:"Office Chair",  issue_desc:"Chair repair resolved",           priority:"low",    status:"resolved",            raised_by_name:"Rohan Mehta", resolved_at:"2026-07-07T00:00:00Z" },
-];
-
 const KANBAN_COLS: { key: MaintenanceStatus; label: string }[] = [
   { key: "pending",             label: "Pending"             },
   { key: "approved",            label: "Approved"            },
@@ -41,6 +32,7 @@ export function MaintenanceScreen() {
   const [assetList, setAssets]    = useState<Asset[]>([]);
   const [empList,   setEmps]      = useState<Employee[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [apiError,  setApiError]  = useState(false);
 
   // Raise request modal
   const [showRaise,  setShowRaise] = useState(false);
@@ -60,6 +52,7 @@ export function MaintenanceScreen() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [rRes, aRes, eRes] = await Promise.all([
         maintApi.list(),
@@ -70,17 +63,14 @@ export function MaintenanceScreen() {
       setAssets(aRes.data);
       setEmps(eRes.data);
       if (aRes.data.length > 0) setRaiseForm((f) => ({ ...f, asset_id: aRes.data[0].id }));
-    } catch {
-      setRequests(MOCK_REQUESTS);
-      setAssets([
-        { id:"2", tag:"AF-0062", name:"Projector",   category_id:"1", condition:"fair", status:"available", is_bookable:true  },
-        { id:"3", tag:"AF-0201", name:"Office Chair", category_id:"2", condition:"good", status:"available", is_bookable:false },
-      ]);
-      setRaiseForm((f) => ({ ...f, asset_id: "2" }));
+    } catch (err) {
+      console.error("Maintenance load error:", err);
+      setApiError(true);
+      toast("Failed to load maintenance data", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -95,9 +85,9 @@ export function MaintenanceScreen() {
         await maintApi.approve(req.id);
         toast(`${req.asset_tag} approved`);
         loadData();
-      } catch {
-        setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, status: "approved" } : r));
-        toast(`${req.asset_tag} approved (offline)`);
+      } catch (err) {
+        console.error("Approve error:", err);
+        toast("Failed to approve request", "error");
       }
       return;
     }
@@ -114,11 +104,9 @@ export function MaintenanceScreen() {
       else if (next === "technician_assigned") await maintApi.assign(req.id, empList[0]?.id ?? "");
       toast(`${req.asset_tag} moved to ${next.replace("_", " ")}`);
       loadData();
-    } catch {
-      setRequests((prev) =>
-        prev.map((r) => r.id === req.id ? { ...r, status: next } : r)
-      );
-      toast(`Status updated (offline)`);
+    } catch (err) {
+      console.error("Advance error:", err);
+      toast("Failed to advance status", "error");
     }
   }
 
@@ -135,9 +123,9 @@ export function MaintenanceScreen() {
       await maintApi.reject(rejectTarget.id, noteText);
       toast("Request rejected");
       loadData();
-    } catch {
-      setRequests((prev) => prev.map((r) => r.id === rejectTarget.id ? { ...r, status: "rejected", rejection_note: noteText } : r));
-      toast("Rejected (offline)");
+    } catch (err) {
+      console.error("Reject error:", err);
+      toast("Failed to reject request", "error");
     }
     setRejectTarget(null);
   }
@@ -149,9 +137,9 @@ export function MaintenanceScreen() {
       await maintApi.resolve(resolveTarget.id, noteText);
       toast("Resolved — asset returned to Available");
       loadData();
-    } catch {
-      setRequests((prev) => prev.map((r) => r.id === resolveTarget.id ? { ...r, status: "resolved", resolution_note: noteText, resolved_at: new Date().toISOString() } : r));
-      toast("Resolved (offline)");
+    } catch (err) {
+      console.error("Resolve error:", err);
+      toast("Failed to resolve request", "error");
     }
     setResolveTarget(null);
   }
@@ -169,21 +157,9 @@ export function MaintenanceScreen() {
       toast("Maintenance request submitted");
       setShowRaise(false);
       loadData();
-    } catch {
-      const asset = assetList.find((a) => a.id === raiseForm.asset_id);
-      const nr: MaintenanceRequest = {
-        id: String(Date.now()),
-        asset_id:   raiseForm.asset_id,
-        asset_tag:  asset?.tag,
-        asset_name: asset?.name,
-        issue_desc: raiseForm.issue_desc,
-        priority:   raiseForm.priority,
-        status:     "pending",
-        created_at: new Date().toISOString(),
-      };
-      setRequests((prev) => [nr, ...prev]);
-      toast("Request submitted (offline)");
-      setShowRaise(false);
+    } catch (err) {
+      console.error("Raise error:", err);
+      toast("Failed to submit request", "error");
     } finally {
       setSubmitting(false);
     }
@@ -218,6 +194,11 @@ export function MaintenanceScreen() {
 
       {loading ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong>{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadData}>Retry</button>
+        </div>
       ) : view === "kanban" ? (
         <>
           <div className="kanban-board">

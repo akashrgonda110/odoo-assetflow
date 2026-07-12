@@ -18,23 +18,7 @@ import { required, hasErrors } from "../lib/validation";
 
 type Tab = "departments" | "categories" | "employees";
 
-// ─── Mock fallbacks ────────────────────────────────────────────────
-const MOCK_DEPARTMENTS: Department[] = [
-  { id: "1", name: "Engineering",      head_name: "Aditi Rao",   status: "active"   },
-  { id: "2", name: "Facilities",       head_name: "Rohan Mehta", status: "active"   },
-  { id: "3", name: "Field Ops (East)", head_name: "Sana Iqbal",  parent_name: "Field Ops", status: "inactive" },
-];
-const MOCK_CATEGORIES: Category[] = [
-  { id: "1", name: "Electronics", description: "Laptops, monitors, peripherals" },
-  { id: "2", name: "Furniture",   description: "Desks, chairs, shelves"         },
-  { id: "3", name: "Vehicles",    description: "Company vehicles and vans"      },
-];
-const MOCK_EMPLOYEES: Employee[] = [
-  { id: "1", name: "Aditi Rao",   email: "admin@assetflow.com",   role: "admin",          department_name: "Engineering", is_active: true  },
-  { id: "2", name: "Rohan Mehta", email: "raj@assetflow.com",     role: "asset_manager",  department_name: "Facilities",  is_active: true  },
-  { id: "3", name: "Priya Shah",  email: "priya@assetflow.com",   role: "employee",       department_name: "Engineering", is_active: true  },
-  { id: "4", name: "Sana Iqbal",  email: "sana@assetflow.com",    role: "department_head",department_name: "Field Ops",   is_active: false },
-];
+
 
 export function OrgScreen() {
   const { isAdmin } = useAuth();
@@ -42,6 +26,7 @@ export function OrgScreen() {
 
   const [tab, setTab]               = useState<Tab>("departments");
   const [loadingData, setLoading]   = useState(true);
+  const [apiError, setApiError]     = useState(false);
 
   const [depts, setDepts]           = useState<Department[]>([]);
   const [cats, setCats]             = useState<Category[]>([]);
@@ -67,6 +52,7 @@ export function OrgScreen() {
   // ─── Load data ────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [dRes, cRes, eRes] = await Promise.all([
         departments.list(),
@@ -76,14 +62,14 @@ export function OrgScreen() {
       setDepts(dRes.data);
       setCats(cRes.data);
       setEmps(eRes.data);
-    } catch {
-      setDepts(MOCK_DEPARTMENTS);
-      setCats(MOCK_CATEGORIES);
-      setEmps(MOCK_EMPLOYEES);
+    } catch (err) {
+      console.error("Org load error:", err);
+      setApiError(true);
+      toast("Failed to load organization data", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -116,17 +102,9 @@ export function OrgScreen() {
       }
       setDeptModal(false);
       loadAll();
-    } catch {
-      // Optimistic update for offline demo
-      if (editingDept) {
-        setDepts((prev) => prev.map((d) => d.id === editingDept.id ? { ...d, ...deptForm } : d));
-        toast("Department updated (offline)");
-      } else {
-        const newD: Department = { id: String(Date.now()), ...deptForm };
-        setDepts((prev) => [...prev, newD]);
-        toast("Department created (offline)");
-      }
-      setDeptModal(false);
+    } catch (err) {
+      console.error("Dept save error:", err);
+      toast("Failed to save department", "error");
     }
   }
 
@@ -136,9 +114,9 @@ export function OrgScreen() {
       await departments.remove(id);
       toast("Department deleted");
       loadAll();
-    } catch {
-      setDepts((prev) => prev.filter((d) => d.id !== id));
-      toast("Department deleted (offline)");
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast("Failed to delete department", "error");
     }
   }
 
@@ -171,14 +149,9 @@ export function OrgScreen() {
       }
       setCatModal(false);
       loadAll();
-    } catch {
-      if (editingCat) {
-        setCats((prev) => prev.map((c) => c.id === editingCat.id ? { ...c, ...catForm } : c));
-      } else {
-        setCats((prev) => [...prev, { id: String(Date.now()), ...catForm }]);
-      }
-      setCatModal(false);
-      toast(editingCat ? "Category updated (offline)" : "Category created (offline)");
+    } catch (err) {
+      console.error("Cat save error:", err);
+      toast("Failed to save category", "error");
     }
   }
 
@@ -246,6 +219,11 @@ export function OrgScreen() {
 
       {loadingData ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong>{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadAll}>Retry</button>
+        </div>
       ) : (
         <>
           {/* ── Departments ─────────────────────────────────────── */}

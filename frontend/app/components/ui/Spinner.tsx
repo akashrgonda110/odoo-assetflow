@@ -1,14 +1,15 @@
 interface SpinnerProps {
   size?: number;
   fullPage?: boolean;
+  dark?: boolean;
 }
 
-export function Spinner({ size = 24, fullPage = false }: SpinnerProps) {
+export function Spinner({ size = 24, fullPage = false, dark = false }: SpinnerProps) {
   const el = (
     <span
       role="status"
       aria-label="Loading"
-      className="spinner"
+      className={`spinner${dark ? " spinner-dark" : ""}`}
       style={{ width: size, height: size }}
     />
   );
@@ -18,13 +19,23 @@ export function Spinner({ size = 24, fullPage = false }: SpinnerProps) {
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          minHeight: 200,
+          minHeight: 240,
+          gap: 12,
+          color: "var(--text-muted)",
+          fontSize: 13,
         }}
       >
-        {el}
+        <span
+          role="status"
+          aria-label="Loading"
+          className="spinner spinner-dark"
+          style={{ width: size, height: size }}
+        />
+        Loading…
       </div>
     );
   }

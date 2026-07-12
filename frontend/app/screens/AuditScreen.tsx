@@ -10,26 +10,7 @@ import { Spinner } from "../components/ui/Spinner";
 import type { AuditCycle, AuditItem, Asset, Employee, VerificationStatus } from "../lib/types";
 import { validateAudit, hasErrors } from "../lib/validation";
 
-// ─── Mock data ──────────────────────────────────────────────────────
-const MOCK_CYCLES: AuditCycle[] = [
-  {
-    id: "1",
-    title: "Q3 Audit: Engineering dept · 1–15 Jul",
-    scope_dept_name: "Engineering",
-    start_date: "2026-07-01",
-    end_date:   "2026-07-15",
-    status: "open",
-    auditors: [
-      { id: "1", name: "A. Rao"  },
-      { id: "4", name: "S. Iqbal" },
-    ],
-    items: [
-      { id:"i1", asset_id:"1", asset_tag:"AF-003",  asset_name:"Dell Laptop",   expected_location:"Desk E12", verification:"verified" },
-      { id:"i2", asset_id:"2", asset_tag:"AF-9921", asset_name:"Office Chair",  expected_location:"Desk E14", verification:"missing"  },
-      { id:"i3", asset_id:"3", asset_tag:"AF-9838", asset_name:"Monitor",       expected_location:"Desk E15", verification:"damaged"  },
-    ],
-  },
-];
+
 
 export function AuditScreen() {
   const { toast } = useToast();
@@ -38,6 +19,7 @@ export function AuditScreen() {
   const [assetList, setAssets]    = useState<Asset[]>([]);
   const [empList,   setEmps]      = useState<Employee[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [apiError,  setApiError]  = useState(false);
 
   const [activeCycle, setActiveCycle] = useState<AuditCycle | null>(null);
 
@@ -54,6 +36,7 @@ export function AuditScreen() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [cRes, aRes, eRes] = await Promise.all([
         auditsApi.list(),
@@ -64,22 +47,14 @@ export function AuditScreen() {
       setAssets(aRes.data);
       setEmps(eRes.data);
       if (cRes.data.length > 0) setActiveCycle(cRes.data[0]);
-    } catch {
-      setCycles(MOCK_CYCLES);
-      setActiveCycle(MOCK_CYCLES[0]);
-      setAssets([
-        { id:"1", tag:"AF-003",  name:"Dell Laptop",  category_id:"1", condition:"good", status:"available", is_bookable:false },
-        { id:"2", tag:"AF-9921", name:"Office Chair", category_id:"2", condition:"good", status:"available", is_bookable:false },
-        { id:"3", tag:"AF-9838", name:"Monitor",      category_id:"1", condition:"fair", status:"available", is_bookable:false },
-      ]);
-      setEmps([
-        { id:"1", name:"A. Rao",   email:"a@a.com", role:"admin",    is_active:true },
-        { id:"4", name:"S. Iqbal", email:"s@s.com", role:"employee", is_active:true },
-      ]);
+    } catch (err) {
+      console.error("Audit load error:", err);
+      setApiError(true);
+      toast("Failed to load audit data", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -90,21 +65,9 @@ export function AuditScreen() {
       await auditsApi.verifyItem(activeCycle.id, item.id, v);
       toast(`${item.asset_tag} marked as ${v}`);
       loadData();
-    } catch {
-      setCycles((prev) =>
-        prev.map((c) =>
-          c.id !== activeCycle.id ? c : {
-            ...c,
-            items: c.items?.map((it) => it.id === item.id ? { ...it, verification: v } : it),
-          }
-        )
-      );
-      setActiveCycle((prev) =>
-        !prev ? prev : {
-          ...prev,
-          items: prev.items?.map((it) => it.id === item.id ? { ...it, verification: v } : it),
-        }
-      );
+    } catch (err) {
+      console.error("Verify error:", err);
+      toast("Failed to verify item", "error");
     }
   }
 
@@ -116,10 +79,9 @@ export function AuditScreen() {
       await auditsApi.close(activeCycle.id);
       toast("Audit cycle closed — discrepancy report archived");
       loadData();
-    } catch {
-      setCycles((prev) => prev.map((c) => c.id === activeCycle.id ? { ...c, status: "closed" } : c));
-      setActiveCycle((prev) => prev ? { ...prev, status: "closed" } : prev);
-      toast("Audit closed (offline)");
+    } catch (err) {
+      console.error("Close audit error:", err);
+      toast("Failed to close audit cycle", "error");
     }
   }
 
@@ -141,21 +103,9 @@ export function AuditScreen() {
       setShowCreate(false);
       loadData();
       setActiveCycle(res.data);
-    } catch {
-      const nc: AuditCycle = {
-        id:         String(Date.now()),
-        title:      createForm.title,
-        start_date: createForm.start_date,
-        end_date:   createForm.end_date,
-        notes:      createForm.notes || undefined,
-        status:     "open",
-        items:      [],
-        auditors:   [],
-      };
-      setCycles((prev) => [nc, ...prev]);
-      setActiveCycle(nc);
-      toast("Cycle created (offline)");
-      setShowCreate(false);
+    } catch (err) {
+      console.error("Create audit error:", err);
+      toast("Failed to create audit cycle", "error");
     } finally {
       setSubmitting(false);
     }
@@ -168,20 +118,9 @@ export function AuditScreen() {
       await auditsApi.addItem(activeCycle.id, addAssetId, addAssetLoc || undefined);
       toast("Asset added to audit");
       loadData();
-    } catch {
-      const asset = assetList.find((a) => a.id === addAssetId);
-      const ni: AuditItem = {
-        id: String(Date.now()),
-        asset_id:          addAssetId,
-        asset_tag:         asset?.tag,
-        asset_name:        asset?.name,
-        expected_location: addAssetLoc || undefined,
-        verification:      "pending",
-      };
-      setActiveCycle((prev) =>
-        prev ? { ...prev, items: [...(prev.items ?? []), ni] } : prev
-      );
-      toast("Asset added (offline)");
+    } catch (err) {
+      console.error("Add item error:", err);
+      toast("Failed to add asset to audit", "error");
     }
     setShowAddAsset(false);
     setAddAssetId("");
@@ -205,6 +144,11 @@ export function AuditScreen() {
 
       {loading ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong>{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadData}>Retry</button>
+        </div>
       ) : (
         <>
           {/* Cycle selector (if multiple) */}

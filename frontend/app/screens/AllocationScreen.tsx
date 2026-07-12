@@ -13,26 +13,6 @@ import type {
 } from "../lib/types";
 import { validateTransfer, hasErrors, required } from "../lib/validation";
 
-const MOCK_ASSETS: Asset[] = [
-  { id:"1", tag:"AF-0114", name:"Dell Laptop",    category_id:"1", condition:"good",  status:"allocated", location:"Bengaluru",  is_bookable:false, assigned_to_name:"Priya Shah",  department_name:"Engineering" },
-  { id:"2", tag:"AF-0012", name:"MacBook Pro",    category_id:"1", condition:"new",   status:"allocated", location:"Bengaluru",  is_bookable:false, assigned_to_name:"Rohan Mehta", department_name:"Facilities"  },
-  { id:"3", tag:"AF-0201", name:"Office Chair",   category_id:"2", condition:"good",  status:"available", location:"Warehouse",  is_bookable:false },
-  { id:"4", tag:"AF-0033", name:"Conference Van", category_id:"3", condition:"good",  status:"available", location:"HQ Parking", is_bookable:true  },
-];
-const MOCK_EMPS: Employee[] = [
-  { id:"1", name:"Aditi Rao",   email:"a@a.com", role:"admin",          is_active:true },
-  { id:"2", name:"Rohan Mehta", email:"r@r.com", role:"asset_manager",  is_active:true },
-  { id:"3", name:"Priya Shah",  email:"p@p.com", role:"employee",       is_active:true },
-  { id:"4", name:"Arjun Nair",  email:"n@n.com", role:"employee",       is_active:true },
-];
-const MOCK_ALLOCS: Allocation[] = [
-  { id:"1", asset_id:"1", asset_tag:"AF-0114", asset_name:"Dell Laptop",  assigned_to_user_name:"Priya Shah",  expected_return_at:"2026-12-31", is_active:true,  created_at:"2026-03-12T10:00:00Z" },
-  { id:"2", asset_id:"2", asset_tag:"AF-0012", asset_name:"MacBook Pro",  assigned_to_user_name:"Rohan Mehta", is_active:true, created_at:"2026-01-04T09:00:00Z" },
-];
-const MOCK_TRANSFERS: Transfer[] = [
-  { id:"1", asset_id:"1", asset_tag:"AF-0114", asset_name:"Dell Laptop", from_user_name:"Priya Shah", to_user_id:"4", to_user_name:"Arjun Nair", reason:"Project reassignment", status:"pending", created_at:"2026-07-10T08:00:00Z" },
-];
-
 export function AllocationScreen() {
   const { toast } = useToast();
 
@@ -64,8 +44,11 @@ export function AllocationScreen() {
   const isAllocated   = selectedAsset?.status === "allocated";
   const currentAlloc  = allocList.find((al) => al.asset_id === selectedAssetId && al.is_active);
 
+  const [apiError, setApiError] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [aRes, eRes, alRes, trRes] = await Promise.all([
         assetsApi.list(),
@@ -78,16 +61,14 @@ export function AllocationScreen() {
       setAllocs(alRes.data);
       setTransfers(trRes.data);
       if (aRes.data.length > 0) setSelectedAssetId(aRes.data[0].id);
-    } catch {
-      setAssets(MOCK_ASSETS);
-      setEmps(MOCK_EMPS);
-      setAllocs(MOCK_ALLOCS);
-      setTransfers(MOCK_TRANSFERS);
-      setSelectedAssetId(MOCK_ASSETS[0].id);
+    } catch (err) {
+      console.error("Allocation load error:", err);
+      setApiError(true);
+      toast("Failed to load data — check backend connection", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => {
@@ -119,11 +100,8 @@ export function AllocationScreen() {
       if (msg.includes("409") || msg.toLowerCase().includes("conflict")) {
         toast("Asset is already allocated — use Transfer instead", "error");
       } else {
-        // Optimistic for demo
-        setAssets((prev) => prev.map((a) => a.id === selectedAssetId
-          ? { ...a, status: "allocated", assigned_to_name: empList.find((e) => e.id === toUserId)?.name }
-          : a));
-        toast("Allocated (offline demo)");
+        toast("Failed to allocate asset", "error");
+        console.error("Allocate error:", err);
       }
     }
   }
@@ -143,21 +121,9 @@ export function AllocationScreen() {
       await allocations.requestTransfer(payload);
       toast("Transfer request submitted");
       loadData();
-    } catch {
-      const newT: Transfer = {
-        id:          String(Date.now()),
-        asset_id:    selectedAssetId,
-        asset_tag:   selectedAsset?.tag,
-        asset_name:  selectedAsset?.name,
-        from_user_name: currentAlloc?.assigned_to_user_name,
-        to_user_id:  transferForm.to_user_id,
-        to_user_name: empList.find((e) => e.id === transferForm.to_user_id)?.name,
-        reason:      transferForm.reason,
-        status:      "pending",
-        created_at:  new Date().toISOString(),
-      };
-      setTransfers((prev) => [newT, ...prev]);
-      toast("Transfer request submitted (offline)");
+    } catch (err) {
+      console.error("Transfer error:", err);
+      toast("Failed to submit transfer request", "error");
     }
     setTransferForm({ to_user_id: "", reason: "" });
   }
@@ -174,10 +140,9 @@ export function AllocationScreen() {
       await allocations.return(returnAlloc.id, returnForm);
       toast("Asset returned successfully");
       loadData();
-    } catch {
-      setAllocs((prev) => prev.map((a) => a.id === returnAlloc.id ? { ...a, is_active: false } : a));
-      setAssets((prev) => prev.map((a) => a.id === returnAlloc.asset_id ? { ...a, status: "available", assigned_to_name: undefined } : a));
-      toast("Return recorded (offline)");
+    } catch (err) {
+      console.error("Return error:", err);
+      toast("Failed to record return", "error");
     }
     setReturnAlloc(null);
   }
@@ -188,9 +153,9 @@ export function AllocationScreen() {
       await allocations.approveTransfer(id);
       toast("Transfer approved");
       loadData();
-    } catch {
-      setTransfers((prev) => prev.map((t) => t.id === id ? { ...t, status: "approved" } : t));
-      toast("Transfer approved (offline)");
+    } catch (err) {
+      console.error("Approve error:", err);
+      toast("Failed to approve transfer", "error");
     }
   }
   async function rejectTransfer(id: string) {
@@ -200,16 +165,11 @@ export function AllocationScreen() {
       await allocations.rejectTransfer(id, note);
       toast("Transfer rejected");
       loadData();
-    } catch {
-      setTransfers((prev) => prev.map((t) => t.id === id ? { ...t, status: "rejected", rejection_note: note } : t));
-      toast("Transfer rejected (offline)");
+    } catch (err) {
+      console.error("Reject error:", err);
+      toast("Failed to reject transfer", "error");
     }
   }
-
-  const history = [
-    { date: "Mar 12", action: `Allocated to ${currentAlloc?.assigned_to_user_name ?? "—"} – ${selectedAsset?.department_name ?? "N/A"}` },
-    { date: "Jan 04", action: "Returned by Arjun Nair – condition: good" },
-  ];
 
   return (
     <div className="animate-fade-up">
@@ -232,6 +192,13 @@ export function AllocationScreen() {
 
       {loading ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong> Please check your server connection.{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadData}>
+            Retry
+          </button>
+        </div>
       ) : tab === "allocate" ? (
         <>
           {/* Asset selector */}
@@ -341,17 +308,7 @@ export function AllocationScreen() {
             </div>
           </div>
 
-          {/* Allocation history */}
-          <h2 className="section-title" style={{ fontSize: 15 }}>Allocation History</h2>
-          <hr className="divider" style={{ margin: "0 0 12px" }} />
-          {history.map((h, i) => (
-            <div key={i} className={`activity-item animate-fade-up stagger-${i + 1}`}>
-              <div className="activity-dot" style={{ background: "var(--info)" }} />
-              <span style={{ fontSize: 13 }}>
-                <strong>{h.date}</strong> &mdash; {h.action}
-              </span>
-            </div>
-          ))}
+
 
           {/* Active allocations table */}
           {allocList.filter((a) => a.is_active).length > 0 && (

@@ -10,38 +10,7 @@ import { Spinner } from "../components/ui/Spinner";
 import type { Asset, Booking, BookingPayload } from "../lib/types";
 import { validateBooking, hasErrors } from "../lib/validation";
 
-// ─── Mock data ─────────────────────────────────────────────────────
-const MOCK_BOOKABLE: Asset[] = [
-  { id:"2", tag:"AF-0062", name:"Projector",          category_id:"1", condition:"fair", status:"available", location:"HQ Floor 2", is_bookable:true },
-  { id:"4", tag:"AF-0033", name:"Conference Van",     category_id:"3", condition:"good", status:"available", location:"HQ Parking", is_bookable:true },
-  { id:"5", tag:"Room-B2", name:"Conference Room B2", category_id:"1", condition:"good", status:"available", location:"HQ Floor 1", is_bookable:true },
-];
 
-const BASE = new Date();
-BASE.setHours(9, 0, 0, 0);
-
-function addHours(base: Date, h: number): Date {
-  return new Date(base.getTime() + h * 3600000);
-}
-
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id:"1", asset_id:"5", asset_name:"Conference Room B2",
-    title:"Procurement Team Standup",
-    booked_by_name:"Rohan Mehta",
-    start_time: addHours(BASE, 0).toISOString(),
-    end_time:   addHours(BASE, 1).toISOString(),
-    status:"ongoing",
-  },
-  {
-    id:"2", asset_id:"5", asset_name:"Conference Room B2",
-    title:"Team Retro",
-    booked_by_name:"Priya Shah",
-    start_time: addHours(BASE, 2).toISOString(),
-    end_time:   addHours(BASE, 3).toISOString(),
-    status:"upcoming",
-  },
-];
 
 // Generates a display grid from 8:00 to 18:00
 const HOUR_SLOTS = Array.from({ length: 10 }, (_, i) => i + 8);
@@ -61,6 +30,7 @@ export function BookingScreen() {
   const [bookableAssets, setAssets]    = useState<Asset[]>([]);
   const [bookingList,    setBookings]  = useState<Booking[]>([]);
   const [loading,        setLoading]   = useState(true);
+  const [apiError,       setApiError]  = useState(false);
   const [selectedId,     setSelectedId] = useState("");
 
   const [showBook,   setShowBook]   = useState(false);
@@ -73,6 +43,7 @@ export function BookingScreen() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [aRes, bRes] = await Promise.all([
         assetsApi.list({ is_bookable: true }),
@@ -81,14 +52,14 @@ export function BookingScreen() {
       setAssets(aRes.data);
       setBookings(bRes.data);
       if (aRes.data.length > 0) setSelectedId(aRes.data[0].id);
-    } catch {
-      setAssets(MOCK_BOOKABLE);
-      setBookings(MOCK_BOOKINGS);
-      setSelectedId(MOCK_BOOKABLE[0].id);
+    } catch (err) {
+      console.error("Booking load error:", err);
+      setApiError(true);
+      toast("Failed to load bookings", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -142,32 +113,7 @@ export function BookingScreen() {
         toast("Time slot conflict — choose a different time", "error");
         setShowBook(false);
       } else {
-        // Optimistic add
-        const conflict = resourceBookings.some((b) => {
-          const start = new Date(payload.start_time).getTime();
-          const end   = new Date(payload.end_time).getTime();
-          const bs    = new Date(b.start_time).getTime();
-          const be    = new Date(b.end_time).getTime();
-          return start < be && end > bs;
-        });
-        if (conflict) {
-          toast("Slot overlaps existing booking — not confirmed", "error");
-          setShowBook(false);
-          return;
-        }
-        const nb: Booking = {
-          id: String(Date.now()),
-          asset_id: selectedId,
-          asset_name: selected?.name,
-          title: form.title,
-          start_time: payload.start_time,
-          end_time:   payload.end_time,
-          notes:      form.notes || undefined,
-          status: "upcoming",
-          created_at: new Date().toISOString(),
-        };
-        setBookings((prev) => [...prev, nb]);
-        toast("Booking confirmed!");
+        toast("Failed to confirm booking", "error");
         setShowBook(false);
       }
     } finally {
@@ -182,9 +128,9 @@ export function BookingScreen() {
       await bookingsApi.cancel(cancelTarget.id, cancelReason);
       toast("Booking cancelled");
       loadData();
-    } catch {
-      setBookings((prev) => prev.map((b) => b.id === cancelTarget.id ? { ...b, status: "cancelled" } : b));
-      toast("Booking cancelled (offline)");
+    } catch (err) {
+      console.error("Cancel error:", err);
+      toast("Failed to cancel booking", "error");
     }
     setCancelTarget(null);
     setCancelReason("");
@@ -209,6 +155,11 @@ export function BookingScreen() {
 
       {loading ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong>{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadData}>Retry</button>
+        </div>
       ) : (
         <>
           {/* Calendar View */}

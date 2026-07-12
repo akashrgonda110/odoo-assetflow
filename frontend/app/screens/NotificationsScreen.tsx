@@ -6,24 +6,7 @@ import { useToast } from "../components/ui/Toast";
 import { Spinner } from "../components/ui/Spinner";
 import type { Notification, NotificationType, ActivityItem } from "../lib/types";
 
-// ─── Mock data ─────────────────────────────────────────────────────
-const MOCK_NOTIFS: Notification[] = [
-  { id:"1", type:"asset_assigned",       message:"Laptop AF-0014 assigned to Priya Shah",              is_read:false, created_at: new Date(Date.now() - 2*60000).toISOString()    },
-  { id:"2", type:"maintenance_approved", message:"Maintenance request AF-0055 approved",               is_read:false, created_at: new Date(Date.now() - 18*60000).toISOString()   },
-  { id:"3", type:"booking_confirmed",    message:"Booking confirmed: Room B2 · 2:00 to 3:00 PM",       is_read:true,  created_at: new Date(Date.now() - 1*3600000).toISOString()  },
-  { id:"4", type:"transfer_approved",    message:"Transfer approved: AF-0033 → Facilities dept",       is_read:true,  created_at: new Date(Date.now() - 3*3600000).toISOString()  },
-  { id:"5", type:"overdue_return",       message:"Overdue return: AF-0021 was due 3 days ago",         is_read:true,  created_at: new Date(Date.now() - 1*86400000).toISOString() },
-  { id:"6", type:"audit_discrepancy",    message:"Audit discrepancy flagged: AF-0088 damaged",         is_read:true,  created_at: new Date(Date.now() - 2*86400000).toISOString() },
-];
 
-const MOCK_LOGS: ActivityItem[] = [
-  { id:"1", description:"Asset AF-0114 allocated to Priya Shah",    entity_type:"asset",       entity_id:"4",  performed_by_name:"Rohan Mehta", created_at: new Date(Date.now() - 5*60000).toISOString()   },
-  { id:"2", description:"Booking Room B2 confirmed (2–3 PM)",       entity_type:"booking",     entity_id:"1",  performed_by_name:"Priya Shah",  created_at: new Date(Date.now() - 65*60000).toISOString()  },
-  { id:"3", description:"Maintenance AF-0062 approved",              entity_type:"maintenance", entity_id:"1",  performed_by_name:"Aditi Rao",   created_at: new Date(Date.now() - 2*3600000).toISOString() },
-  { id:"4", description:"Transfer AF-0033 approved → Facilities",    entity_type:"transfer",    entity_id:"1",  performed_by_name:"Aditi Rao",   created_at: new Date(Date.now() - 5*3600000).toISOString() },
-  { id:"5", description:"Department 'Field Ops East' deactivated",   entity_type:"department",  entity_id:"3",  performed_by_name:"Aditi Rao",   created_at: new Date(Date.now() - 86400000).toISOString()  },
-  { id:"6", description:"Category 'Medical Equipment' created",      entity_type:"category",    entity_id:"5",  performed_by_name:"Aditi Rao",   created_at: new Date(Date.now() - 2*86400000).toISOString() },
-];
 
 type FilterType = "all" | "alerts" | "approvals" | "bookings";
 
@@ -67,12 +50,14 @@ export function NotificationsScreen({ onUnreadChange }: NotificationsScreenProps
   const [notifs,   setNotifs]  = useState<Notification[]>([]);
   const [logs,     setLogs]    = useState<ActivityItem[]>([]);
   const [loading,  setLoading] = useState(true);
+  const [apiError, setApiError] = useState(false);
   const [tab,      setTab]     = useState<"notifications" | "logs">("notifications");
   const [filter,   setFilter]  = useState<FilterType>("all");
   const [logFilter, setLogFilter] = useState("all");
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [nRes, lRes] = await Promise.all([
         notifApi.list(),
@@ -81,14 +66,14 @@ export function NotificationsScreen({ onUnreadChange }: NotificationsScreenProps
       setNotifs(nRes.data);
       setLogs(lRes.data);
       onUnreadChange(nRes.data.filter((n) => !n.is_read).length);
-    } catch {
-      setNotifs(MOCK_NOTIFS);
-      setLogs(MOCK_LOGS);
-      onUnreadChange(MOCK_NOTIFS.filter((n) => !n.is_read).length);
+    } catch (err) {
+      console.error("Notifications load error:", err);
+      setApiError(true);
+      toast("Failed to load notifications", "error");
     } finally {
       setLoading(false);
     }
-  }, [onUnreadChange]);
+  }, [onUnreadChange, toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -178,6 +163,11 @@ export function NotificationsScreen({ onUnreadChange }: NotificationsScreenProps
 
       {loading ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong>{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadData}>Retry</button>
+        </div>
       ) : tab === "notifications" ? (
         <>
           {/* Filter chips */}

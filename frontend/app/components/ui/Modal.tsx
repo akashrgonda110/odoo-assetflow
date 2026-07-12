@@ -6,12 +6,10 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   children: ReactNode;
-  /** Width of the modal box – default 480px */
   width?: number | string;
 }
 
 export function Modal({ title, onClose, children, width = 480 }: ModalProps) {
-  // Close on Escape key
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -22,7 +20,7 @@ export function Modal({ title, onClose, children, width = 480 }: ModalProps) {
 
   return (
     <div
-      className="modal-backdrop"
+      className="modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -33,30 +31,19 @@ export function Modal({ title, onClose, children, width = 480 }: ModalProps) {
         style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h3 id="modal-title" style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+        <div className="modal-header">
+          <h3 id="modal-title" className="modal-title">
             {title}
           </h3>
           <button
             onClick={onClose}
-            className="btn btn-ghost btn-sm"
+            className="modal-close"
             aria-label="Close modal"
-            style={{ fontSize: 20, lineHeight: 1, padding: "2px 8px" }}
           >
             ×
           </button>
         </div>
-
-        {/* Body */}
-        {children}
+        <div className="modal-body">{children}</div>
       </div>
     </div>
   );

@@ -6,33 +6,7 @@ import { useToast } from "../components/ui/Toast";
 import { Spinner } from "../components/ui/Spinner";
 import type { UtilizationDept, MostUsedAsset, IdleAsset, MaintenanceFrequency, DeptAllocationSummary } from "../lib/types";
 
-// ─── Mock data ─────────────────────────────────────────────────────
-const MOCK_UTILIZATION: UtilizationDept[] = [
-  { department_name: "Engineering", total: 45, allocated: 38, utilization_pct: 84 },
-  { department_name: "Facilities",  total: 30, allocated: 18, utilization_pct: 60 },
-  { department_name: "Field Ops",   total: 20, allocated: 12, utilization_pct: 60 },
-  { department_name: "HR",          total: 12, allocated:  5, utilization_pct: 42 },
-  { department_name: "Finance",     total: 15, allocated:  9, utilization_pct: 60 },
-];
-const MOCK_MOST_USED: MostUsedAsset[] = [
-  { asset_tag: "Room-B2", asset_name: "Conference Room B2", usage_count: 34 },
-  { asset_tag: "AF-393",  asset_name: "Van AF-393",         usage_count: 21 },
-  { asset_tag: "AF-335",  asset_name: "Projector AF-335",   usage_count: 18 },
-];
-const MOCK_IDLE: IdleAsset[] = [
-  { asset_tag: "AF-0301", asset_name: "Camera",      idle_days: 62, location: "Storage A" },
-  { asset_tag: "AF-0410", asset_name: "Office Chair", idle_days: 45, location: "Floor 3"  },
-];
-const MOCK_MAINT_FREQ: MaintenanceFrequency[] = [
-  { asset_tag: "AF-0062", asset_name: "Projector",  request_count: 5 },
-  { asset_tag: "AF-0087", asset_name: "Forklift",   request_count: 4 },
-  { asset_tag: "AF-0020", asset_name: "Laptop",     request_count: 3 },
-];
-const MOCK_DEPT_ALLOC: DeptAllocationSummary[] = [
-  { department_name: "Engineering", allocated_count: 38, employee_count: 22 },
-  { department_name: "Facilities",  allocated_count: 18, employee_count: 14 },
-  { department_name: "Field Ops",   allocated_count: 12, employee_count:  8 },
-];
+
 
 // ─── Bar chart component ──────────────────────────────────────────
 function BarChart({ data }: { data: UtilizationDept[] }) {
@@ -114,10 +88,12 @@ export function ReportsScreen() {
   const [maintFreq,    setMaintFreq] = useState<MaintenanceFrequency[]>([]);
   const [deptAlloc,    setDeptAlloc] = useState<DeptAllocationSummary[]>([]);
   const [loading,      setLoading]   = useState(true);
+  const [apiError,     setApiError]  = useState(false);
   const [exporting,    setExporting] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setApiError(false);
     try {
       const [uRes, mRes, iRes, fRes, dRes] = await Promise.all([
         reportsApi.utilization(),
@@ -131,16 +107,14 @@ export function ReportsScreen() {
       setIdle(iRes.data);
       setMaintFreq(fRes.data);
       setDeptAlloc(dRes.data);
-    } catch {
-      setUtil(MOCK_UTILIZATION);
-      setMostUsed(MOCK_MOST_USED);
-      setIdle(MOCK_IDLE);
-      setMaintFreq(MOCK_MAINT_FREQ);
-      setDeptAlloc(MOCK_DEPT_ALLOC);
+    } catch (err) {
+      console.error("Reports load error:", err);
+      setApiError(true);
+      toast("Failed to load reports data", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -184,6 +158,11 @@ export function ReportsScreen() {
 
       {loading ? (
         <Spinner fullPage />
+      ) : apiError ? (
+        <div className="alert alert-danger">
+          <strong>Backend unreachable.</strong>{" "}
+          <button className="btn btn-sm btn-outline" style={{ marginLeft: 10 }} onClick={loadData}>Retry</button>
+        </div>
       ) : (
         <>
           {/* Row 1: Charts */}
