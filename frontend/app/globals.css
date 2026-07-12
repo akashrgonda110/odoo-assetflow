@@ -24,3 +24,43 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ─── Input error state ───────────────────────────────────────────── */
+.af-input-error {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(239,68,68,.15) !important;
+}
+
+/* ─── Empty booking slot hover ────────────────────────────────────── */
+.empty-slot:hover {
+  background: var(--accent-light);
+}
+
+/* ─── Kanban — wider scroll on small screens ───────────────────────── */
+@media (max-width: 900px) {
+  .kanban-board {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    overflow-x: auto;
+  }
+}
+
+/* ─── Responsive grid ─────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .app-shell { flex-direction: column; }
+  .sidebar   { width: 100%; min-width: unset; height: auto; flex-direction: row; flex-wrap: wrap; }
+  .main-content { padding: 16px; }
+  .kanban-board { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── Table: monospace tag cells ─────────────────────────────────────*/
+.af-table td.tag-cell {
+  font-family: monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ─── Print-safe export button ────────────────────────────────────── */
+@media print {
+  .sidebar, .btn { display: none !important; }
+  .main-content  { padding: 0; }
+}
