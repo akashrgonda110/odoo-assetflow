@@ -57,7 +57,7 @@ export const AllocationController = {
         const current = await AllocationModel.findActiveByAsset(asset_id);
         return ApiResponse.success(res, 409, {
           conflict:          true,
-          current_holder:    current?.assigned_to_name  ?? null,
+          current_holder:    current?.assigned_to_user_name  ?? null,
           current_holder_id: current?.assigned_to_user  ?? null,
           current_dept:      current?.assigned_to_dept_name ?? null,
           asset_tag:         asset.asset_tag,

@@ -185,7 +185,8 @@ export interface Transfer {
 
 export interface TransferPayload {
   asset_id: string;
-  to_user_id: string;
+  to_user_id?: string;
+  to_dept_id?: string;
   reason: string;
 }
 

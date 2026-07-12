@@ -21,7 +21,23 @@ function toMinutes(iso: string): number {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+/** Convert a local datetime string (YYYY-MM-DDTHH:MM) to a full ISO string */
+function localToISO(localDt: string): string {
+  // datetime-local gives "YYYY-MM-DDTHH:MM" — treat as local time
+  return new Date(localDt).toISOString();
+}
+
+/** Get a datetime-local string (YYYY-MM-DDTHH:MM) from a Date, in local time */
+function toDateTimeLocal(date: Date): string {
+  const yr  = date.getFullYear();
+  const mo  = String(date.getMonth() + 1).padStart(2, "0");
+  const dy  = String(date.getDate()).padStart(2, "0");
+  const hh  = String(date.getHours()).padStart(2, "0");
+  const mm  = String(date.getMinutes()).padStart(2, "0");
+  return `${yr}-${mo}-${dy}T${hh}:${mm}`;
 }
 
 export function BookingScreen() {
@@ -77,15 +93,19 @@ export function BookingScreen() {
 
   // ─── Book ─────────────────────────────────────────────────────────
   function openBook() {
-    const now = new Date();
-    const yr  = now.getFullYear();
-    const mo  = String(now.getMonth() + 1).padStart(2, "0");
-    const dy  = String(now.getDate()).padStart(2, "0");
+    const now   = new Date();
+    const start = new Date(now);
+    start.setMinutes(0, 0, 0);
+    // default to next full hour, clamped to 08:00–17:00
+    const h = start.getHours() < 8 ? 8 : start.getHours() >= 17 ? 17 : start.getHours() + 1;
+    start.setHours(h, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(start.getHours() + 1);
     setForm({
-      title: "",
-      start_time: `${yr}-${mo}-${dy}T10:00`,
-      end_time:   `${yr}-${mo}-${dy}T11:00`,
-      notes: "",
+      title:      "",
+      start_time: toDateTimeLocal(start),
+      end_time:   toDateTimeLocal(end),
+      notes:      "",
     });
     setFormErrors({});
     setShowBook(true);
@@ -100,8 +120,8 @@ export function BookingScreen() {
     const payload: BookingPayload = {
       asset_id:   selectedId,
       title:      form.title,
-      start_time: new Date(form.start_time).toISOString(),
-      end_time:   new Date(form.end_time).toISOString(),
+      start_time: localToISO(form.start_time),
+      end_time:   localToISO(form.end_time),
       notes:      form.notes || undefined,
     };
 
@@ -114,10 +134,8 @@ export function BookingScreen() {
       const msg = err instanceof Error ? err.message : "";
       if (msg.includes("400") || msg.toLowerCase().includes("overlap") || msg.toLowerCase().includes("conflict")) {
         toast("Time slot conflict — choose a different time", "error");
-        setShowBook(false);
       } else {
         toast("Failed to confirm booking", "error");
-        setShowBook(false);
       }
     } finally {
       setSubmitting(false);
@@ -188,7 +206,9 @@ export function BookingScreen() {
 
               return (
                 <div key={h} className="time-slot">
-                  <span className="time-label">{h}:00</span>
+                  <span className="time-label">
+                    {h === 12 ? "12 PM" : h > 12 ? `${h - 12} PM` : `${h} AM`}
+                  </span>
                   {booking ? (
                     <div
                       className={`booking-block ${
@@ -225,12 +245,11 @@ export function BookingScreen() {
                       style={{ flex: 1, height: 36, borderRadius: 4, cursor: "pointer", transition: "background 0.15s ease" }}
                       className="empty-slot"
                       onClick={() => {
-                        const yr  = new Date().getFullYear();
-                        const mo  = String(new Date().getMonth() + 1).padStart(2, "0");
-                        const dy  = String(new Date().getDate()).padStart(2, "0");
-                        const hh  = String(h).padStart(2, "0");
-                        const hh1 = String(h + 1).padStart(2, "0");
-                        setForm({ title: "", start_time: `${yr}-${mo}-${dy}T${hh}:00`, end_time: `${yr}-${mo}-${dy}T${hh1}:00`, notes: "" });
+                        const base = new Date();
+                        base.setHours(h, 0, 0, 0);
+                        const endBase = new Date(base);
+                        endBase.setHours(h + 1, 0, 0, 0);
+                        setForm({ title: "", start_time: toDateTimeLocal(base), end_time: toDateTimeLocal(endBase), notes: "" });
                         setFormErrors({});
                         setShowBook(true);
                       }}
@@ -277,7 +296,7 @@ export function BookingScreen() {
 
       {/* ── Book Modal ────────────────────────────────────────────── */}
       {showBook && (
-        <Modal title="Book a Slot" onClose={() => setShowBook(false)}>
+        <Modal title="Book a Slot" onClose={() => setShowBook(false)} width={560}>
           <FormField label="Title" error={formErrors.title} required>
             <Input
               value={form.title}
@@ -286,24 +305,104 @@ export function BookingScreen() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </FormField>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <FormField label="Start Time" error={formErrors.start_time} required>
-              <Input
-                type="datetime-local"
-                value={form.start_time}
-                error={formErrors.start_time}
-                onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-              />
-            </FormField>
-            <FormField label="End Time" error={formErrors.end_time} required>
-              <Input
-                type="datetime-local"
-                value={form.end_time}
-                error={formErrors.end_time}
-                onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-              />
-            </FormField>
-          </div>
+
+          {/* Start Time */}
+          <FormField label="Start Time" error={formErrors.start_time} required>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 180px", minWidth: 180 }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>Date</label>
+                <Input
+                  type="date"
+                  value={form.start_time.split("T")[0]}
+                  style={{ minWidth: 0 }}
+                  onChange={(e) => {
+                    const [, time] = form.start_time.split("T");
+                    setForm({ ...form, start_time: `${e.target.value}T${time}` });
+                  }}
+                />
+              </div>
+              <div style={{ flex: "0 0 90px" }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>Hour</label>
+                <Select
+                  value={form.start_time.split("T")[1]?.split(":")[0] ?? "10"}
+                  options={Array.from({ length: 24 }, (_, h) => ({
+                    value: String(h).padStart(2, "0"),
+                    label: h === 0 ? "12 AM" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`,
+                  }))}
+                  onChange={(e) => {
+                    const [date] = form.start_time.split("T");
+                    const [, min] = (form.start_time.split("T")[1] ?? "10:00").split(":");
+                    setForm({ ...form, start_time: `${date}T${e.target.value}:${min}` });
+                  }}
+                />
+              </div>
+              <div style={{ flex: "0 0 80px" }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>Minute</label>
+                <Select
+                  value={form.start_time.split("T")[1]?.split(":")[1] ?? "00"}
+                  options={Array.from({ length: 60 }, (_, m) => ({
+                    value: String(m).padStart(2, "0"),
+                    label: String(m).padStart(2, "0"),
+                  }))}
+                  onChange={(e) => {
+                    const [date] = form.start_time.split("T");
+                    const [hr] = (form.start_time.split("T")[1] ?? "10:00").split(":");
+                    setForm({ ...form, start_time: `${date}T${hr}:${e.target.value}` });
+                  }}
+                />
+              </div>
+            </div>
+          </FormField>
+
+          {/* End Time */}
+          <FormField label="End Time" error={formErrors.end_time} required>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 180px", minWidth: 180 }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>Date</label>
+                <Input
+                  type="date"
+                  value={form.end_time.split("T")[0]}
+                  min={form.start_time.split("T")[0]}
+                  style={{ minWidth: 0 }}
+                  onChange={(e) => {
+                    const [, time] = form.end_time.split("T");
+                    setForm({ ...form, end_time: `${e.target.value}T${time}` });
+                  }}
+                />
+              </div>
+              <div style={{ flex: "0 0 90px" }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>Hour</label>
+                <Select
+                  value={form.end_time.split("T")[1]?.split(":")[0] ?? "11"}
+                  options={Array.from({ length: 24 }, (_, h) => ({
+                    value: String(h).padStart(2, "0"),
+                    label: h === 0 ? "12 AM" : h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`,
+                  }))}
+                  onChange={(e) => {
+                    const [date] = form.end_time.split("T");
+                    const [, min] = (form.end_time.split("T")[1] ?? "11:00").split(":");
+                    setForm({ ...form, end_time: `${date}T${e.target.value}:${min}` });
+                  }}
+                />
+              </div>
+              <div style={{ flex: "0 0 80px" }}>
+                <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 3 }}>Minute</label>
+                <Select
+                  value={form.end_time.split("T")[1]?.split(":")[1] ?? "00"}
+                  options={Array.from({ length: 60 }, (_, m) => ({
+                    value: String(m).padStart(2, "0"),
+                    label: String(m).padStart(2, "0"),
+                  }))}
+                  onChange={(e) => {
+                    const [date] = form.end_time.split("T");
+                    const [hr] = (form.end_time.split("T")[1] ?? "11:00").split(":");
+                    setForm({ ...form, end_time: `${date}T${hr}:${e.target.value}` });
+                  }}
+                />
+              </div>
+            </div>
+          </FormField>
+
           <FormField label="Notes">
             <Input
               value={form.notes}

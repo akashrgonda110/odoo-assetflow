@@ -147,12 +147,17 @@ export function validateAudit(f: AuditForm): FormErrors<AuditForm> {
 
 export interface TransferForm {
   to_user_id: string;
+  to_dept_id: string;
   reason: string;
 }
-export function validateTransfer(f: TransferForm): FormErrors<TransferForm> {
+export function validateTransfer(f: TransferForm, mode: "employee" | "dept" = "employee"): FormErrors<TransferForm> {
   const errors: FormErrors<TransferForm> = {};
-  errors.to_user_id = required(f.to_user_id, "Recipient");
-  errors.reason     = required(f.reason, "Reason") ?? minLength(f.reason, 10, "Reason");
+  if (mode === "employee") {
+    errors.to_user_id = required(f.to_user_id, "Recipient employee");
+  } else {
+    errors.to_dept_id = required(f.to_dept_id, "Recipient department");
+  }
+  errors.reason = required(f.reason, "Reason") ?? minLength(f.reason, 10, "Reason");
   return errors;
 }
 

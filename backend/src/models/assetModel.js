@@ -158,7 +158,7 @@ export const AssetModel = {
   async getAllocationHistory(assetId) {
     const { rows } = await query(
       `SELECT al.*,
-              u.name  AS assigned_to_name,
+              u.name  AS assigned_to_user_name,
               d.name  AS assigned_to_dept_name,
               ab.name AS allocated_by_name
        FROM allocations al

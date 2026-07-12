@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { assets as assetsApi, allocations, employees } from "../lib/api";
+import { assets as assetsApi, allocations, employees, departments as departmentsApi } from "../lib/api";
 import { useToast } from "../components/ui/Toast";
 import { Modal } from "../components/ui/Modal";
 import { FormField, Input, Select, Textarea } from "../components/ui/FormField";
 import { AssetStatusBadge, TransferStatusBadge } from "../components/ui/Badge";
 import { Spinner } from "../components/ui/Spinner";
 import type {
-  Asset, Allocation, Transfer, Employee,
+  Asset, Allocation, Transfer, Employee, Department,
   AllocationPayload, ReturnPayload, TransferPayload,
 } from "../lib/types";
 import { validateTransfer, hasErrors, required } from "../lib/validation";
@@ -18,6 +18,7 @@ export function AllocationScreen() {
 
   const [assetList,    setAssets]    = useState<Asset[]>([]);
   const [empList,      setEmps]      = useState<Employee[]>([]);
+  const [deptList,     setDepts]     = useState<Department[]>([]);
   const [allocList,    setAllocs]    = useState<Allocation[]>([]);
   const [transferList, setTransfers] = useState<Transfer[]>([]);
   const [loading,      setLoading]   = useState(true);
@@ -28,12 +29,14 @@ export function AllocationScreen() {
   const [selectedAssetId, setSelectedAssetId] = useState("");
   const [allocMode,       setAllocMode]        = useState<"employee" | "dept">("employee");
   const [toUserId,        setToUserId]         = useState("");
+  const [toDeptId,        setToDeptId]         = useState("");
   const [expectedReturn,  setExpReturn]        = useState("");
   const [allocErrors,     setAllocErrors]      = useState<Record<string, string>>({});
 
   // Transfer form
-  const [transferForm,   setTransferForm]   = useState<{ to_user_id: string; reason: string }>({ to_user_id: "", reason: "" });
+  const [transferForm,   setTransferForm]   = useState<{ to_user_id: string; to_dept_id: string; reason: string }>({ to_user_id: "", to_dept_id: "", reason: "" });
   const [transferErrors, setTransferErrors] = useState<Partial<typeof transferForm>>({});
+  const [transferMode,   setTransferMode]   = useState<"employee" | "dept">("employee");
 
   // Return modal
   const [returnAlloc,    setReturnAlloc]  = useState<Allocation | null>(null);
@@ -50,9 +53,10 @@ export function AllocationScreen() {
     setLoading(true);
     setApiError(false);
     try {
-      const [aRes, eRes, alRes, trRes] = await Promise.all([
+      const [aRes, eRes, dRes, alRes, trRes] = await Promise.all([
         assetsApi.list(),
         employees.list(),
+        departmentsApi.list("active"),
         allocations.list(),
         allocations.listTransfers(),
       ]);
@@ -62,6 +66,7 @@ export function AllocationScreen() {
         : (aRes.data as unknown as { assets: Asset[] })?.assets ?? [];
       setAssets(assetData);
       setEmps(eRes.data?.users ?? []);
+      setDepts(Array.isArray(dRes.data) ? dRes.data : []);
       setAllocs(Array.isArray(alRes.data) ? alRes.data : []);
       setTransfers(Array.isArray(trRes.data) ? trRes.data : []);
       if (assetData.length > 0) setSelectedAssetId(assetData[0].id);
@@ -78,26 +83,34 @@ export function AllocationScreen() {
   useEffect(() => {
     // Reset form fields when asset changes
     setToUserId("");
+    setToDeptId("");
     setAllocErrors({});
-    setTransferForm({ to_user_id: "", reason: "" });
+    setTransferForm({ to_user_id: "", to_dept_id: "", reason: "" });
     setTransferErrors({});
+    setTransferMode("employee");
   }, [selectedAssetId]);
 
   // ─── Allocate ────────────────────────────────────────────────────
   async function handleAllocate() {
     const e: Record<string, string> = {};
-    e.to = required(toUserId, "Recipient") ?? "";
+    const recipientId = allocMode === "employee" ? toUserId : toDeptId;
+    e.to = required(recipientId, "Recipient") ?? "";
     setAllocErrors(e);
     if (e.to) return;
 
     const payload: AllocationPayload = {
-      asset_id:        selectedAssetId,
-      assigned_to_user: allocMode === "employee" ? toUserId : undefined,
-      expected_return_at: expectedReturn || undefined,
+      asset_id:            selectedAssetId,
+      assigned_to_user:    allocMode === "employee" ? toUserId   : undefined,
+      assigned_to_dept:    allocMode === "dept"     ? toDeptId   : undefined,
+      expected_return_at:  expectedReturn || undefined,
     };
     try {
       await allocations.create(payload);
-      toast(`Asset allocated to ${empList.find((e) => e.id === toUserId)?.name}`);
+      const recipientName =
+        allocMode === "employee"
+          ? empList.find((e) => e.id === toUserId)?.name
+          : deptList.find((d) => d.id === toDeptId)?.name;
+      toast(`Asset allocated to ${recipientName}`);
       loadData();
     } catch (err: unknown) {
       const msg = (err instanceof Error ? err.message : "") ?? "";
@@ -112,14 +125,15 @@ export function AllocationScreen() {
 
   // ─── Transfer request ─────────────────────────────────────────────
   async function handleTransfer() {
-    const errors = validateTransfer(transferForm);
+    const errors = validateTransfer(transferForm, transferMode);
     setTransferErrors(errors);
     if (hasErrors(errors)) return;
 
     const payload: TransferPayload = {
-      asset_id:   selectedAssetId,
-      to_user_id: transferForm.to_user_id,
-      reason:     transferForm.reason,
+      asset_id:    selectedAssetId,
+      to_user_id:  transferMode === "employee" ? transferForm.to_user_id : undefined,
+      to_dept_id:  transferMode === "dept"     ? transferForm.to_dept_id : undefined,
+      reason:      transferForm.reason,
     };
     try {
       await allocations.requestTransfer(payload);
@@ -129,7 +143,7 @@ export function AllocationScreen() {
       console.error("Transfer error:", err);
       toast("Failed to submit transfer request", "error");
     }
-    setTransferForm({ to_user_id: "", reason: "" });
+    setTransferForm({ to_user_id: "", to_dept_id: "", reason: "" });
   }
 
   // ─── Return ────────────────────────────────────────────────────────
@@ -221,7 +235,13 @@ export function AllocationScreen() {
             <div className={`alert ${isAllocated ? "alert-danger" : "alert-success"} animate-fade-down`} style={{ marginBottom: 20 }}>
               {isAllocated ? (
                 <>
-                  Already allocated to <strong>{currentAlloc?.assigned_to_user_name ?? selectedAsset.assigned_to_name}</strong>
+                  Already allocated to{" "}
+                  <strong>
+                    {currentAlloc?.assigned_to_user_name ??
+                      currentAlloc?.assigned_to_dept_name ??
+                      selectedAsset.assigned_to_name ??
+                      "—"}
+                  </strong>
                   {selectedAsset.department_name ? ` (${selectedAsset.department_name})` : ""}
                   .<br />
                   Direct re-allocation is blocked — submit a transfer request below.
@@ -248,23 +268,61 @@ export function AllocationScreen() {
               </div>
             )}
 
+            {/* Transfer-mode toggle (shown only when asset is already allocated) */}
+            {isAllocated && (
+              <div className="tab-bar" style={{ marginBottom: 14 }}>
+                <button className={`tab-btn${transferMode === "employee" ? " active" : ""}`} onClick={() => { setTransferMode("employee"); setTransferForm({ ...transferForm, to_dept_id: "" }); }}>To Employee</button>
+                <button className={`tab-btn${transferMode === "dept"     ? " active" : ""}`} onClick={() => { setTransferMode("dept");     setTransferForm({ ...transferForm, to_user_id: "" }); }}>To Department</button>
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: isAllocated ? "1fr 1fr" : "1fr", gap: 12 }}>
               {isAllocated && (
                 <FormField label="From">
-                  <Input value={currentAlloc?.assigned_to_user_name ?? selectedAsset?.assigned_to_name ?? ""} readOnly />
+                  <Input
+                    value={
+                      currentAlloc?.assigned_to_user_name ??
+                      currentAlloc?.assigned_to_dept_name ??
+                      selectedAsset?.assigned_to_name ??
+                      ""
+                    }
+                    readOnly
+                  />
                 </FormField>
               )}
-              <FormField label="To" error={allocErrors.to || transferErrors.to_user_id} required>
+              <FormField
+                label="To"
+                error={allocErrors.to || transferErrors.to_user_id || transferErrors.to_dept_id}
+                required
+              >
                 <Select
-                  value={isAllocated ? transferForm.to_user_id : toUserId}
-                  error={allocErrors.to || transferErrors.to_user_id}
-                  placeholder="Select Employee…"
-                  options={empList.map((e) => ({ value: e.id, label: e.name }))}
-                  onChange={(e) =>
+                  value={
                     isAllocated
-                      ? setTransferForm({ ...transferForm, to_user_id: e.target.value })
-                      : setToUserId(e.target.value)
+                      ? (transferMode === "employee" ? transferForm.to_user_id : transferForm.to_dept_id)
+                      : (allocMode === "employee" ? toUserId : toDeptId)
                   }
+                  error={allocErrors.to || transferErrors.to_user_id || transferErrors.to_dept_id}
+                  placeholder={
+                    (isAllocated ? transferMode : allocMode) === "employee"
+                      ? "Select Employee…"
+                      : "Select Department…"
+                  }
+                  options={
+                    (isAllocated ? transferMode : allocMode) === "employee"
+                      ? empList.map((e) => ({ value: e.id, label: e.name }))
+                      : deptList.map((d) => ({ value: d.id, label: d.name }))
+                  }
+                  onChange={(e) => {
+                    if (isAllocated) {
+                      transferMode === "employee"
+                        ? setTransferForm({ ...transferForm, to_user_id: e.target.value })
+                        : setTransferForm({ ...transferForm, to_dept_id: e.target.value });
+                    } else {
+                      allocMode === "employee"
+                        ? setToUserId(e.target.value)
+                        : setToDeptId(e.target.value);
+                    }
+                  }}
                 />
               </FormField>
             </div>

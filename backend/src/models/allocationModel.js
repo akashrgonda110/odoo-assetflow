@@ -5,7 +5,7 @@ export const AllocationModel = {
   async findActiveByAsset(asset_id) {
     const { rows } = await query(
       `SELECT al.*,
-              u.name  AS assigned_to_name,
+              u.name  AS assigned_to_user_name,
               u.email AS assigned_to_email,
               d.name  AS assigned_to_dept_name,
               ab.name AS allocated_by_name
@@ -24,9 +24,9 @@ export const AllocationModel = {
     const { rows } = await query(
       `SELECT al.*,
               a.asset_tag, a.name AS asset_name,
-              u.name  AS assigned_to_name,
+              u.name  AS assigned_to_user_name,
               u.email AS assigned_to_email,
-              d.name  AS dept_name,
+              d.name  AS assigned_to_dept_name,
               ab.name AS allocated_by_name
        FROM allocations al
        LEFT JOIN assets      a  ON a.id  = al.asset_id
@@ -57,8 +57,8 @@ export const AllocationModel = {
     const { rows } = await query(
       `SELECT al.*,
               a.asset_tag, a.name AS asset_name,
-              u.name  AS assigned_to_name,
-              d.name  AS dept_name,
+              u.name  AS assigned_to_user_name,
+              d.name  AS assigned_to_dept_name,
               ab.name AS allocated_by_name
        FROM allocations al
        LEFT JOIN assets      a  ON a.id  = al.asset_id

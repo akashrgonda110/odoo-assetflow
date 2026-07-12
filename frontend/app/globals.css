@@ -769,6 +769,56 @@ body {
 /* ─── Empty slot booking hover ────────────────────────────────────── */
 .empty-slot:hover { background: var(--primary-light); }
 
+/* ─── Booking Calendar ───────────────────────────────────────────── */
+.time-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border);
+  padding: 4px 0;
+}
+.time-slot:last-child { border-bottom: none; }
+
+.time-label {
+  width: 52px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.booking-block {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  font-weight: 500;
+  min-height: 36px;
+}
+
+.booking-confirmed {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+.booking-conflict {
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* datetime-local input — ensure it never clips */
+input[type="datetime-local"] {
+  min-width: 0;
+  width: 100%;
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .kanban-board {
