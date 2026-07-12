@@ -51,9 +51,10 @@ export function AssetsScreen() {
     location: "", acquisition_cost: "", serial_number: "",
   });
   const [formErrors, setFormErrors] = useState<Partial<AssetForm>>({});
-  const [isBookable, setIsBookable] = useState(false);
-  const [notes, setNotes]           = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [isBookable, setIsBookable]       = useState(false);
+  const [acquisitionDate, setAcquisitionDate] = useState("");
+  const [notes, setNotes]                 = useState("");
+  const [submitting, setSubmitting]       = useState(false);
 
   // Detail drawer
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
@@ -83,7 +84,7 @@ export function AssetsScreen() {
     const q = search.toLowerCase();
     const matchQ =
       !q ||
-      a.tag.toLowerCase().includes(q) ||
+      a.asset_tag.toLowerCase().includes(q) ||
       a.name.toLowerCase().includes(q) ||
       (a.serial_number ?? "").toLowerCase().includes(q);
     const matchC = !catFilter  || a.category_id === catFilter;
@@ -96,6 +97,7 @@ export function AssetsScreen() {
     setForm({ name: "", category_id: catList[0]?.id ?? "", condition: "good", location: "", acquisition_cost: "", serial_number: "" });
     setFormErrors({});
     setIsBookable(false);
+    setAcquisitionDate("");
     setNotes("");
     setShowRegister(true);
   }
@@ -114,6 +116,7 @@ export function AssetsScreen() {
       is_bookable:      isBookable,
       serial_number:    form.serial_number || undefined,
       acquisition_cost: form.acquisition_cost ? parseFloat(form.acquisition_cost) : undefined,
+      acquisition_date: acquisitionDate || undefined,
       notes:            notes || undefined,
     };
 
@@ -122,9 +125,10 @@ export function AssetsScreen() {
       toast("Asset registered successfully");
       setShowRegister(false);
       loadData();
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
       console.error("Asset create error:", err);
-      toast("Failed to register asset", "error");
+      toast(msg || "Failed to register asset", "error");
     } finally {
       setSubmitting(false);
     }
@@ -233,7 +237,7 @@ export function AssetsScreen() {
                   onClick={() => setDetailAsset(a)}
                   title="Click to view details"
                 >
-                  <td style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 12.5 }}>{a.tag}</td>
+                  <td style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 12.5 }}>{a.asset_tag}</td>
                   <td style={{ fontWeight: 500 }}>{a.name}</td>
                   <td>{a.category_name ?? a.category_id}</td>
                   <td style={{ textTransform: "capitalize" }}>{a.condition}</td>
@@ -313,7 +317,11 @@ export function AssetsScreen() {
             </FormField>
 
             <FormField label="Acquisition Date">
-              <Input type="date" onChange={() => {}} />
+              <Input
+                type="date"
+                value={acquisitionDate}
+                onChange={(e) => setAcquisitionDate(e.target.value)}
+              />
             </FormField>
 
             <div style={{ gridColumn: "1 / -1" }}>
@@ -352,7 +360,7 @@ export function AssetsScreen() {
 
       {/* ── Asset Detail Drawer ────────────────────────────────────── */}
       {detailAsset && (
-        <Modal title={`${detailAsset.tag} — ${detailAsset.name}`} onClose={() => setDetailAsset(null)} width={480}>
+        <Modal title={`${detailAsset.asset_tag} — ${detailAsset.name}`} onClose={() => setDetailAsset(null)} width={480}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 24px", fontSize: 13.5 }}>
             {[
               ["Category",    detailAsset.category_name],

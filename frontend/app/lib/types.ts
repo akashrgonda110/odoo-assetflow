@@ -61,6 +61,7 @@ export interface Category {
   name: string;
   description?: string;
   custom_fields?: CategoryField[];
+  asset_count?: number;
   created_at?: string;
 }
 
@@ -97,7 +98,8 @@ export type AssetCondition = "new" | "good" | "fair" | "poor" | "damaged";
 
 export interface Asset {
   id: string;
-  tag: string;
+  asset_tag: string;       // actual backend field
+  tag?: string;            // alias used in some frontend renders
   name: string;
   category_id: string;
   category_name?: string;

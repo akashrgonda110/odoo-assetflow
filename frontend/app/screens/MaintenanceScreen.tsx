@@ -309,7 +309,7 @@ export function MaintenanceScreen() {
             <Select
               value={raiseForm.asset_id}
               error={raiseErrors.asset_id}
-              options={assetList.map((a) => ({ value: a.id, label: `${a.tag} — ${a.name}` }))}
+              options={assetList.map((a) => ({ value: a.id, label: `${a.asset_tag} — ${a.name}` }))}
               placeholder="Select asset…"
               onChange={(e) => setRaiseForm({ ...raiseForm, asset_id: e.target.value })}
             />

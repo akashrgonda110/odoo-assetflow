@@ -225,7 +225,7 @@ export function AllocationScreen() {
               <Select
                 value={selectedAssetId}
                 onChange={(e) => setSelectedAssetId(e.target.value)}
-                options={assetList.map((a) => ({ value: a.id, label: `${a.tag} – ${a.name}` }))}
+                options={assetList.map((a) => ({ value: a.id, label: `${a.asset_tag} – ${a.name}` }))}
               />
             </FormField>
           </div>
@@ -249,7 +249,7 @@ export function AllocationScreen() {
               ) : (
                 <>
                   <AssetStatusBadge status={selectedAsset.status} />{" "}
-                  <strong>{selectedAsset.tag}</strong> is available — you can allocate it directly.
+                  <strong>{selectedAsset.asset_tag}</strong> is available — you can allocate it directly.
                 </>
               )}
             </div>

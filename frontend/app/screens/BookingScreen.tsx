@@ -168,7 +168,7 @@ export function BookingScreen() {
             onChange={(e) => setSelectedId(e.target.value)}
             options={bookableAssets.map((a) => ({
               value: a.id,
-              label: `${a.name} — ${a.location ?? a.tag}`,
+              label: `${a.name} — ${a.location ?? a.asset_tag}`,
             }))}
           />
         </FormField>

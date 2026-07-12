@@ -338,7 +338,7 @@ export function AuditScreen() {
           <FormField label="Asset" required>
             <Select
               value={addAssetId}
-              options={assetList.map((a) => ({ value: a.id, label: `${a.tag} — ${a.name}` }))}
+              options={assetList.map((a) => ({ value: a.id, label: `${a.asset_tag} — ${a.name}` }))}
               placeholder="Select asset…"
               onChange={(e) => setAddAssetId(e.target.value)}
             />

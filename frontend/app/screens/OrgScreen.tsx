@@ -46,8 +46,9 @@ export function OrgScreen() {
   const [deptErrors, setDeptErrors] = useState<Partial<DepartmentPayload>>({});
 
   // ── Delete confirm modal ──────────────────────────────────────────
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; type: "dept" | "cat" } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; type: "dept" | "cat"; assetCount?: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // ── Category modal ────────────────────────────────────────────────
   const [showCatModal, setCatModal] = useState(false);
@@ -130,6 +131,7 @@ export function OrgScreen() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       if (deleteTarget.type === "dept") {
         await departments.remove(deleteTarget.id);
@@ -142,8 +144,7 @@ export function OrgScreen() {
       loadAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      toast(msg || `Failed to delete`, "error");
-      console.error("Delete error:", err);
+      setDeleteError(msg);
     } finally {
       setDeleting(false);
     }
@@ -327,7 +328,7 @@ export function OrgScreen() {
                         <button
                           className="btn btn-ghost btn-sm"
                           style={{ color: "var(--danger)" }}
-                          onClick={(ev) => { ev.stopPropagation(); setDeleteTarget({ id: d.id, name: d.name, type: "dept" }); }}
+                          onClick={(ev) => { ev.stopPropagation(); setDeleteError(null); setDeleteTarget({ id: d.id, name: d.name, type: "dept" }); }}
                         >
                           Delete
                         </button>
@@ -364,7 +365,7 @@ export function OrgScreen() {
                       <button
                         className="btn btn-ghost btn-sm"
                         style={{ color: "var(--danger)" }}
-                        onClick={(ev) => { ev.stopPropagation(); setDeleteTarget({ id: c.id, name: c.name, type: "cat" }); }}
+                        onClick={(ev) => { ev.stopPropagation(); setDeleteError(null); setDeleteTarget({ id: c.id, name: c.name, type: "cat", assetCount: c.asset_count ?? 0 }); }}
                       >
                         Delete
                       </button>
@@ -493,24 +494,56 @@ export function OrgScreen() {
       {deleteTarget && (
         <Modal
           title={`Delete ${deleteTarget.type === "dept" ? "Department" : "Category"}`}
-          onClose={() => setDeleteTarget(null)}
+          onClose={() => { setDeleteTarget(null); setDeleteError(null); }}
           width={420}
         >
-          <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 20 }}>
-            Are you sure you want to delete{" "}
-            <strong style={{ color: "var(--text-primary)" }}>{deleteTarget.name}</strong>?
-            {deleteTarget.type === "dept" && (
-              <span style={{ display: "block", marginTop: 8, fontSize: 12.5, color: "var(--danger)" }}>
-                This will fail if the department still has active employees.
-              </span>
-            )}
-          </p>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button className="btn btn-outline" onClick={() => setDeleteTarget(null)}>Cancel</button>
-            <button className="btn btn-danger" onClick={confirmDelete} disabled={deleting}>
-              {deleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Delete"}
-            </button>
-          </div>
+          {/* Pre-flight warning for categories with assets */}
+          {deleteTarget.type === "cat" && (deleteTarget.assetCount ?? 0) > 0 ? (
+            <>
+              <div style={{ background: "var(--danger-light, #fef2f2)", border: "1px solid var(--danger)", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: 13.5, color: "var(--danger)" }}>
+                  Cannot delete — {deleteTarget.assetCount} asset{deleteTarget.assetCount !== 1 ? "s" : ""} assigned
+                </p>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>
+                  Reassign or retire all assets in the <strong>{deleteTarget.name}</strong> category before deleting it.
+                  Go to the <strong>Assets</strong> tab to update each asset's category.
+                </p>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => { setDeleteTarget(null); setDeleteError(null); }}>
+                  Close
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 13.5, color: "var(--text-secondary)", marginBottom: 16 }}>
+                Are you sure you want to delete{" "}
+                <strong style={{ color: "var(--text-primary)" }}>{deleteTarget.name}</strong>?
+                {deleteTarget.type === "dept" && (
+                  <span style={{ display: "block", marginTop: 6, fontSize: 12.5, color: "var(--text-muted)" }}>
+                    This will fail if the department still has active employees.
+                  </span>
+                )}
+              </p>
+
+              {/* Inline error from API */}
+              {deleteError && (
+                <div style={{ background: "var(--danger-light, #fef2f2)", border: "1px solid var(--danger)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--danger)" }}>
+                  {deleteError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-outline" onClick={() => { setDeleteTarget(null); setDeleteError(null); }}>
+                  Cancel
+                </button>
+                <button className="btn btn-danger" onClick={confirmDelete} disabled={deleting}>
+                  {deleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "Delete"}
+                </button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
 
