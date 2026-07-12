@@ -1,0 +1,42 @@
+# ─── Dependencies ─────────────────────────────────────────────────
+node_modules
+
+# ─── Next.js build output (rebuilt inside Docker) ─────────────────
+.next
+out
+
+# ─── Environment files (secrets must never enter the image) ───────
+.env
+.env.*
+!.env.example
+
+# ─── Logs ─────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Dev tooling ──────────────────────────────────────────────────
+.eslintrc*
+eslint.config*
+.editorconfig
+
+# ─── TypeScript incremental build info ────────────────────────────
+*.tsbuildinfo
+next-env.d.ts
+
+# ─── Git ──────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ─── OS artefacts ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Docker files themselves ───────────────────────────────────────
+Dockerfile
+.dockerignore
+
+# ─── Vercel / CI artefacts ────────────────────────────────────────
+.vercel
+coverage

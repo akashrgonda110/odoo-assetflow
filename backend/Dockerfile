@@ -1,39 +1,47 @@
-# ─── Stage 1: deps ────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 — deps
+# Install production dependencies only, so the final image stays lean.
+# ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copy only the manifest first so this layer is cached unless deps change
-COPY package*.json ./
+# Copy manifests first to leverage layer caching
+COPY package.json package-lock.json ./
 
-# Install production deps only
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
-# ─── Stage 2: runtime ─────────────────────────────────────────────
-FROM node:20-alpine AS runtime
 
-# Security: run as non-root
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — runner
+# Minimal production image: copies only node_modules + source.
+# No devDependencies, no build tools.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+# Add non-root user for security
+RUN addgroup -S assetflow && adduser -S assetflow -G assetflow
 
 WORKDIR /app
 
-# Copy installed modules from deps stage
+# Copy production node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy application source
 COPY src ./src
-COPY package*.json ./
+COPY package.json ./
 
-# Own everything as the non-root user
-RUN chown -R appuser:appgroup /app
+# Own everything by the non-root user
+RUN chown -R assetflow:assetflow /app
 
-USER appuser
+USER assetflow
 
-# Backend listens on 5000 (matches env.js default)
+# Expose API port
 EXPOSE 5000
 
-# Health-check: hit the /api/health endpoint every 30 s
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Healthcheck — verifies the /api/health endpoint responds
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:5000/api/health || exit 1
 
+# Start the server
 CMD ["node", "src/server.js"]

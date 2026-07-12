@@ -1,0 +1,30 @@
+# ─── Dependencies ─────────────────────────────────────────────────
+node_modules
+
+# ─── Environment files (secrets must never enter the image) ───────
+.env
+.env.*
+!.env.example
+
+# ─── Logs ─────────────────────────────────────────────────────────
+logs
+*.log
+npm-debug.log*
+
+# ─── Dev tooling ──────────────────────────────────────────────────
+.eslintrc*
+eslint.config*
+nodemon.json
+.editorconfig
+
+# ─── Git ──────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ─── OS artefacts ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Docker files themselves ───────────────────────────────────────
+Dockerfile
+.dockerignore

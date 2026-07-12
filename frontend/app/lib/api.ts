@@ -108,9 +108,7 @@ async function request<T>(
   const json = (await res.json()) as ApiResponse<T> & { message?: string };
 
   if (!res.ok) {
-    const fieldErrors = (json as unknown as { errors?: { field: string; message: string }[] }).errors;
-    const detail = fieldErrors?.map((e) => `${e.field}: ${e.message}`).join("; ");
-    const msg = detail ? `${json.message ?? "Request failed"} — ${detail}` : (json.message ?? `HTTP ${res.status}`);
+    const msg = json.message ?? `HTTP ${res.status}`;
     throw new ApiError(msg, res.status, json);
   }
 
