@@ -2,6 +2,7 @@
 
 Enterprise asset management system built with Node.js, Express, PostgreSQL, React, and Next.js. AssetFlow provides comprehensive tracking, allocation, maintenance scheduling, booking, and auditing capabilities for organizational assets.
 
+
 ## Table of Contents
 
 - [Features](#features)
@@ -20,6 +21,12 @@ Enterprise asset management system built with Node.js, Express, PostgreSQL, Reac
 - [Development](#development)
 - [Deployment](#deployment)
 - [License](#license)
+
+<img width="1746" height="787" alt="image" src="https://github.com/user-attachments/assets/73a2af22-6e1f-4e54-914d-c17234d89c8f" />
+<img width="1911" height="892" alt="image" src="https://github.com/user-attachments/assets/954f467c-f1e4-48a1-8af9-55b95503ff54" />
+<img width="1886" height="893" alt="image" src="https://github.com/user-attachments/assets/c9e548ad-1aac-4fdb-8f9a-fd4bdea5d557" />
+<img width="1917" height="917" alt="image" src="https://github.com/user-attachments/assets/e4f2d591-8f9b-4b09-9f1e-88c3b790f2aa" />
+
 
 ## Features
 
