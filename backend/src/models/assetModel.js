@@ -41,11 +41,16 @@ export const AssetModel = {
       `SELECT a.*,
               ac.name AS category_name,
               d.name  AS department_name,
-              u.name  AS created_by_name
+              u.name  AS created_by_name,
+              al_u.name AS assigned_to_name,
+              al_d.name AS assigned_to_dept_name
        FROM assets a
-       LEFT JOIN asset_categories ac ON ac.id = a.category_id
-       LEFT JOIN departments       d  ON d.id  = a.department_id
-       LEFT JOIN users             u  ON u.id  = a.created_by
+       LEFT JOIN asset_categories ac  ON ac.id  = a.category_id
+       LEFT JOIN departments       d   ON d.id   = a.department_id
+       LEFT JOIN users             u   ON u.id   = a.created_by
+       LEFT JOIN allocations       al  ON al.asset_id = a.id AND al.is_active = true
+       LEFT JOIN users             al_u ON al_u.id = al.assigned_to_user
+       LEFT JOIN departments       al_d ON al_d.id = al.assigned_to_dept
        ${where}
        ORDER BY a.created_at DESC
        LIMIT $${idx++} OFFSET $${idx++}`,
@@ -78,11 +83,16 @@ export const AssetModel = {
       `SELECT a.*,
               ac.name  AS category_name,
               d.name   AS department_name,
-              u.name   AS created_by_name
+              u.name   AS created_by_name,
+              al_u.name AS assigned_to_name,
+              al_d.name AS assigned_to_dept_name
        FROM assets a
-       LEFT JOIN asset_categories ac ON ac.id = a.category_id
-       LEFT JOIN departments       d  ON d.id  = a.department_id
-       LEFT JOIN users             u  ON u.id  = a.created_by
+       LEFT JOIN asset_categories ac  ON ac.id  = a.category_id
+       LEFT JOIN departments       d   ON d.id   = a.department_id
+       LEFT JOIN users             u   ON u.id   = a.created_by
+       LEFT JOIN allocations       al  ON al.asset_id = a.id AND al.is_active = true
+       LEFT JOIN users             al_u ON al_u.id = al.assigned_to_user
+       LEFT JOIN departments       al_d ON al_d.id = al.assigned_to_dept
        WHERE a.id = $1`,
       [id]
     );

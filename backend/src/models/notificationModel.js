@@ -12,10 +12,10 @@ export const NotificationModel = {
     params.push(limit, offset);
 
     const { rows } = await query(
-      `SELECT * FROM notifications
+      `SELECT * FROM notifications n
        WHERE ${conds.join(' AND ')}
-       ORDER BY created_at DESC
-       LIMIT $${idx++} OFFSET $${idx++}`,
+       ORDER BY n.created_at DESC
+       LIMIT $${idx++} OFFSET $${idx}`,
       params
     );
     return rows;

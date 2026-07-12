@@ -11,7 +11,6 @@ import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/Table";
 import type { Asset, Category, AssetPayload, AssetStatus, AssetCondition } from "../lib/types";
 import { validateAsset, hasErrors, type AssetForm } from "../lib/validation";
-
 import { Pagination } from "../components/ui/Pagination";
 
 const PAGE_SIZE = 10;
@@ -63,6 +62,16 @@ export function AssetsScreen() {
 
   // Detail drawer
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
+
+  // Edit modal
+  const [editAsset,    setEditAsset]   = useState<Asset | null>(null);
+  const [editForm,     setEditForm]    = useState<AssetForm>({ name: "", category_id: "", condition: "good", location: "", acquisition_cost: "", serial_number: "" });
+  const [editErrors,   setEditErrors]  = useState<Partial<AssetForm>>({});
+  const [editDate,     setEditDate]    = useState("");
+  const [editBookable, setEditBookable]= useState(false);
+  const [editNotes,    setEditNotes]   = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError,    setEditError]   = useState<string | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -166,6 +175,59 @@ export function AssetsScreen() {
     }
   }
 
+  // ─── Edit asset ───────────────────────────────────────────────────
+  function openEdit(a: Asset) {
+    setEditAsset(a);
+    setEditForm({
+      name:             a.name,
+      category_id:      a.category_id,
+      condition:        a.condition,
+      location:         a.location ?? "",
+      acquisition_cost: a.acquisition_cost != null ? String(a.acquisition_cost) : "",
+      serial_number:    a.serial_number ?? "",
+    });
+    setEditDate(a.acquisition_date ? a.acquisition_date.slice(0, 10) : "");
+    setEditBookable(a.is_bookable);
+    setEditNotes(a.notes ?? "");
+    setEditErrors({});
+    setEditError(null);
+    setDetailAsset(null); // close detail drawer
+  }
+
+  async function submitEdit() {
+    if (!editAsset) return;
+    const errors = validateAsset(editForm);
+    setEditErrors(errors);
+    setEditError(null);
+    if (hasErrors(errors)) return;
+
+    setEditSubmitting(true);
+    const payload: Partial<AssetPayload> = {
+      name:             editForm.name,
+      category_id:      editForm.category_id,
+      condition:        editForm.condition as AssetCondition,
+      location:         editForm.location,
+      is_bookable:      editBookable,
+      serial_number:    editForm.serial_number || undefined,
+      acquisition_cost: editForm.acquisition_cost ? parseFloat(editForm.acquisition_cost) : undefined,
+      acquisition_date: editDate || undefined,
+      notes:            editNotes || undefined,
+    };
+
+    try {
+      await assetsApi.update(editAsset.id, payload);
+      toast("Asset updated successfully");
+      setEditAsset(null);
+      loadData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update asset";
+      console.error("Asset update error:", err);
+      setEditError(msg);
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
   return (
     <div className="animate-fade-up">
       {/* Header row */}
@@ -259,6 +321,7 @@ export function AssetsScreen() {
                 <th>Status</th>
                 <th>Location</th>
                 <th>Assigned To</th>
+                {canManage && <th style={{ width: 60 }}></th>}
               </tr>
             </thead>
             <tbody>
@@ -275,7 +338,24 @@ export function AssetsScreen() {
                   <td style={{ textTransform: "capitalize" }}>{a.condition}</td>
                   <td><AssetStatusBadge status={a.status} /></td>
                   <td style={{ color: "var(--text-secondary)" }}>{a.location ?? "—"}</td>
-                  <td style={{ color: "var(--text-secondary)" }}>{a.assigned_to_name ?? "—"}</td>
+                  <td style={{ color: "var(--text-secondary)" }}>
+                    {a.assigned_to_name
+                      ? <span>{a.assigned_to_name}{a.assigned_to_dept_name ? <span style={{ color: "var(--text-muted)", fontSize: 12 }}> · {a.assigned_to_dept_name}</span> : null}</span>
+                      : a.assigned_to_dept_name
+                      ? <span style={{ color: "var(--text-muted)" }}>{a.assigned_to_dept_name}</span>
+                      : "—"}
+                  </td>
+                  {canManage && (
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 12 }}
+                        onClick={() => openEdit(a)}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -404,20 +484,21 @@ export function AssetsScreen() {
         <Modal title={`${detailAsset.asset_tag} — ${detailAsset.name}`} onClose={() => setDetailAsset(null)} width={480}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 24px", fontSize: 13.5 }}>
             {[
-              ["Category",    detailAsset.category_name],
-              ["Status",      <AssetStatusBadge key="s" status={detailAsset.status} />],
-              ["Condition",   <span key="c" style={{ textTransform: "capitalize" }}>{detailAsset.condition}</span>],
-              ["Location",    detailAsset.location ?? "—"],
-              ["Serial No.",  detailAsset.serial_number ?? "—"],
-              ["Bookable",    detailAsset.is_bookable ? "Yes" : "No"],
-              ["Assigned To", detailAsset.assigned_to_name ?? "—"],
-              ["Department",  detailAsset.department_name ?? "—"],
+              ["Category",       detailAsset.category_name],
+              ["Status",         <AssetStatusBadge key="s" status={detailAsset.status} />],
+              ["Condition",      <span key="c" style={{ textTransform: "capitalize" }}>{detailAsset.condition}</span>],
+              ["Location",       detailAsset.location ?? "—"],
+              ["Serial No.",     detailAsset.serial_number ?? "—"],
+              ["Bookable",       detailAsset.is_bookable ? "Yes" : "No"],
+              ["Assigned To",    detailAsset.assigned_to_name ?? (detailAsset.assigned_to_dept_name ? null : "—")],
+              ["Assigned Dept",  detailAsset.assigned_to_dept_name ?? "—"],
+              ["Home Dept",      detailAsset.department_name ?? "—"],
             ].map(([label, val]) => (
               <div key={String(label)}>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4, fontWeight: 600 }}>
                   {label}
                 </div>
-                <div style={{ color: "var(--text-primary)", fontWeight: 500 }}>{val}</div>
+                <div style={{ color: "var(--text-primary)", fontWeight: 500 }}>{val ?? "—"}</div>
               </div>
             ))}
           </div>
@@ -426,6 +507,119 @@ export function AssetsScreen() {
               {detailAsset.notes}
             </div>
           )}
+          {canManage && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <button className="btn btn-primary btn-sm" onClick={() => openEdit(detailAsset)}>
+                Edit Asset
+              </button>
+            </div>
+          )}
+        </Modal>
+      )}
+      {/* ── Edit Asset Modal ──────────────────────────────────────── */}
+      {editAsset && (
+        <Modal title={`Edit Asset — ${editAsset.asset_tag}`} onClose={() => { setEditAsset(null); setEditError(null); }} width={520}>
+          {editError && (
+            <div style={{ background: "var(--danger-light)", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--danger)" }}>
+              {editError}
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FormField label="Asset Name" error={editErrors.name} required>
+                <Input
+                  value={editForm.name}
+                  error={editErrors.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Category" error={editErrors.category_id} required>
+              <Select
+                value={editForm.category_id}
+                error={editErrors.category_id}
+                options={catList.map((c) => ({ value: c.id, label: c.name }))}
+                onChange={(e) => setEditForm({ ...editForm, category_id: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Condition" error={editErrors.condition} required>
+              <Select
+                value={editForm.condition}
+                error={editErrors.condition}
+                options={CONDITION_OPTIONS}
+                onChange={(e) => setEditForm({ ...editForm, condition: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Location" error={editErrors.location} required>
+              <Input
+                value={editForm.location}
+                error={editErrors.location}
+                placeholder="e.g. HQ Floor 2, Desk A4"
+                onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Serial Number">
+              <Input
+                value={editForm.serial_number}
+                placeholder="Optional"
+                onChange={(e) => setEditForm({ ...editForm, serial_number: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Acquisition Cost (₹)" error={editErrors.acquisition_cost}>
+              <Input
+                type="number"
+                min="0"
+                value={editForm.acquisition_cost}
+                error={editErrors.acquisition_cost}
+                placeholder="0"
+                onChange={(e) => setEditForm({ ...editForm, acquisition_cost: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Acquisition Date">
+              <Input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+            </FormField>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FormField label="Notes">
+                <Textarea
+                  value={editNotes}
+                  placeholder="Optional notes…"
+                  onChange={(e) => setEditNotes(e.target.value)}
+                />
+              </FormField>
+            </div>
+
+            <div style={{ gridColumn: "1 / -1", marginBottom: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13.5 }}>
+                <input
+                  type="checkbox"
+                  checked={editBookable}
+                  onChange={(e) => setEditBookable(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "var(--primary)" }}
+                />
+                Mark as bookable (shared resource — can be reserved by time slot)
+              </label>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+            <button className="btn btn-outline" onClick={() => { setEditAsset(null); setEditError(null); }}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={submitEdit} disabled={editSubmitting}>
+              {editSubmitting ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Saving…</> : "Save Changes"}
+            </button>
+          </div>
         </Modal>
       )}
     </div>

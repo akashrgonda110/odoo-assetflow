@@ -98,8 +98,8 @@ export type AssetCondition = "new" | "good" | "fair" | "poor" | "damaged";
 
 export interface Asset {
   id: string;
-  asset_tag: string;       // actual backend field
-  tag?: string;            // alias used in some frontend renders
+  asset_tag: string;
+  tag?: string;
   name: string;
   category_id: string;
   category_name?: string;
@@ -112,6 +112,7 @@ export interface Asset {
   is_bookable: boolean;
   notes?: string;
   assigned_to_name?: string;
+  assigned_to_dept_name?: string;
   department_name?: string;
   created_at?: string;
 }
