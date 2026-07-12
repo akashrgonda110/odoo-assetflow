@@ -1,398 +1,675 @@
 {
   "info": {
-    "name": "Odoo Backend Practice API",
-    "description": "Auto-generated Postman collection for the Node.js backend. Includes automated scripts for access token injection and user ID management.",
+    "name": "AssetFlow API",
+    "_postman_id": "assetflow-api-v1",
+    "description": "Complete API collection for AssetFlow Enterprise Asset & Resource Management System",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5000/api",
-      "type": "string"
-    },
-    {
-      "key": "accessToken",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "userId",
-      "value": "",
-      "type": "string"
-    }
+    { "key": "baseUrl",      "value": "http://localhost:5000/api" },
+    { "key": "accessToken",  "value": "" },
+    { "key": "adminToken",   "value": "" },
+    { "key": "assetId",      "value": "" },
+    { "key": "allocationId", "value": "" },
+    { "key": "bookingId",    "value": "" },
+    { "key": "maintenanceId","value": "" },
+    { "key": "auditId",      "value": "" },
+    { "key": "transferId",   "value": "" },
+    { "key": "categoryId",   "value": "" },
+    { "key": "departmentId", "value": "" },
+    { "key": "employeeId",   "value": "" }
   ],
   "item": [
     {
-      "name": "Health Check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/health",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "health"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "Auth",
+      "name": "01 – Auth",
       "item": [
         {
-          "name": "Register",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data) {",
-                  "    if (jsonData.data.accessToken) pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
-                  "    if (jsonData.data.user && jsonData.data.user.id) pm.collectionVariables.set(\"userId\", jsonData.data.user.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Register (creates employee account)",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('accessToken',pm.response.json().data.accessToken);}"]}}],
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"Password123!\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
-            }
-          },
-          "response": []
+            "method": "POST", "url": "{{baseUrl}}/auth/register",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {"mode":"raw","raw":"{\"name\":\"Test Employee\",\"email\":\"test@assetflow.com\",\"password\":\"Test@1234\"}"}
+          }
         },
         {
-          "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data) {",
-                  "    if (jsonData.data.accessToken) pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
-                  "    if (jsonData.data.user && jsonData.data.user.id) pm.collectionVariables.set(\"userId\", jsonData.data.user.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Login as Admin",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===200){pm.collectionVariables.set('adminToken',pm.response.json().data.accessToken);pm.collectionVariables.set('accessToken',pm.response.json().data.accessToken);}"]}}],
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"Password123!\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            }
-          },
-          "response": []
+            "method": "POST", "url": "{{baseUrl}}/auth/login",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {"mode":"raw","raw":"{\"email\":\"admin@assetflow.com\",\"password\":\"Admin@1234\"}"}
+          }
+        },
+        {
+          "name": "Login as Asset Manager",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===200){pm.collectionVariables.set('accessToken',pm.response.json().data.accessToken);}"]}}],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/login",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "body": {"mode":"raw","raw":"{\"email\":\"raj@assetflow.com\",\"password\":\"Manager@1234\"}"}
+          }
+        },
+        {
+          "name": "Get Current User (me)",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/auth/me",
+            "header": [{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
         },
         {
           "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data) {",
-                  "    if (jsonData.data.accessToken) pm.collectionVariables.set(\"accessToken\", jsonData.data.accessToken);",
-                  "    if (jsonData.data.user && jsonData.data.user.id) pm.collectionVariables.set(\"userId\", jsonData.data.user.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/auth/refresh",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "refresh"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Current User (Me)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
-            }
-          },
-          "response": []
+          "request": { "method": "POST", "url": "{{baseUrl}}/auth/refresh" }
         },
         {
           "name": "Logout",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    pm.collectionVariables.set(\"accessToken\", \"\");",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "logout"
-              ]
-            }
-          },
-          "response": []
+            "method": "POST", "url": "{{baseUrl}}/auth/logout",
+            "header": [{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
         },
         {
           "name": "Logout All Devices",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    pm.collectionVariables.set(\"accessToken\", \"\");",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/auth/logout-all",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "logout-all"
-              ]
-            }
-          },
-          "response": []
+            "method": "POST", "url": "{{baseUrl}}/auth/logout-all",
+            "header": [{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
         }
       ]
     },
     {
-      "name": "Users",
+      "name": "02 – Organization Setup",
       "item": [
         {
-          "name": "Get All Users (Admin)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
+          "name": "Departments",
+          "item": [
+            {
+              "name": "Get All Departments",
+              "request": { "method":"GET","url":"{{baseUrl}}/departments","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
             },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get User By ID",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
+            {
+              "name": "Get All Departments (active only)",
+              "request": { "method":"GET","url":{"raw":"{{baseUrl}}/departments?status=active","query":[{"key":"status","value":"active"}],"host":["{{baseUrl}}/departments"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
             },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{userId}}"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Update User",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
+            {
+              "name": "Get Department by ID",
+              "request": { "method":"GET","url":"{{baseUrl}}/departments/{{departmentId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
             },
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+            {
+              "name": "Create Department",
+              "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('departmentId',pm.response.json().data.id);}"]}}],
+              "request": {
+                "method":"POST","url":"{{baseUrl}}/departments",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"name\":\"IT Support\",\"description\":\"IT helpdesk and support\",\"status\":\"active\"}"}
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\"\n}"
             },
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{userId}}"
-              ]
+            {
+              "name": "Update Department",
+              "request": {
+                "method":"PUT","url":"{{baseUrl}}/departments/{{departmentId}}",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"description\":\"IT helpdesk, support, and infrastructure\",\"status\":\"active\"}"}
+              }
+            },
+            {
+              "name": "Delete Department",
+              "request": { "method":"DELETE","url":"{{baseUrl}}/departments/{{departmentId}}","header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}] }
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "Delete User (Admin)",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{accessToken}}",
-                  "type": "string"
-                }
-              ]
+          "name": "Asset Categories",
+          "item": [
+            {
+              "name": "Get All Categories",
+              "request": { "method":"GET","url":"{{baseUrl}}/categories","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
             },
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "users",
-                "{{userId}}"
-              ]
+            {
+              "name": "Get Category by ID",
+              "request": { "method":"GET","url":"{{baseUrl}}/categories/{{categoryId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+            },
+            {
+              "name": "Create Category",
+              "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('categoryId',pm.response.json().data.id);}"]}}],
+              "request": {
+                "method":"POST","url":"{{baseUrl}}/categories",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"name\":\"Medical Equipment\",\"description\":\"Hospital-grade medical devices\",\"custom_fields\":[{\"field\":\"calibration_due\",\"label\":\"Calibration Due Date\",\"type\":\"date\"}]}"}
+              }
+            },
+            {
+              "name": "Update Category",
+              "request": {
+                "method":"PUT","url":"{{baseUrl}}/categories/{{categoryId}}",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"description\":\"Hospital-grade medical devices and instruments\"}"}
+              }
+            },
+            {
+              "name": "Delete Category",
+              "request": { "method":"DELETE","url":"{{baseUrl}}/categories/{{categoryId}}","header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}] }
             }
-          },
-          "response": []
+          ]
+        },
+        {
+          "name": "Employee Directory",
+          "item": [
+            {
+              "name": "Get All Employees",
+              "request": { "method":"GET","url":"{{baseUrl}}/employees","header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}] }
+            },
+            {
+              "name": "Get Employees – Filter by Role",
+              "request": { "method":"GET","url":{"raw":"{{baseUrl}}/employees?role=employee","query":[{"key":"role","value":"employee"}],"host":["{{baseUrl}}/employees"]},"header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}] }
+            },
+            {
+              "name": "Get Employees – Filter by Department",
+              "request": { "method":"GET","url":{"raw":"{{baseUrl}}/employees?department_id={{departmentId}}","query":[{"key":"department_id","value":"{{departmentId}}"}],"host":["{{baseUrl}}/employees"]},"header":[{"key":"Authorization","value":"Bearer {{adminToken}}"}] }
+            },
+            {
+              "name": "Get Employee by ID",
+              "request": { "method":"GET","url":"{{baseUrl}}/employees/{{employeeId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+            },
+            {
+              "name": "Update Own Profile",
+              "request": {
+                "method":"PATCH","url":"{{baseUrl}}/employees/{{employeeId}}",
+                "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"name\":\"Updated Name\",\"phone\":\"+91-9876543210\"}"}
+              }
+            },
+            {
+              "name": "Promote to Asset Manager (Admin only)",
+              "request": {
+                "method":"PATCH","url":"{{baseUrl}}/employees/{{employeeId}}/role",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"role\":\"asset_manager\"}"}
+              }
+            },
+            {
+              "name": "Promote to Department Head (Admin only)",
+              "request": {
+                "method":"PATCH","url":"{{baseUrl}}/employees/{{employeeId}}/role",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"role\":\"department_head\"}"}
+              }
+            },
+            {
+              "name": "Deactivate Employee (Admin only)",
+              "request": {
+                "method":"PATCH","url":"{{baseUrl}}/employees/{{employeeId}}/status",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"is_active\":false}"}
+              }
+            },
+            {
+              "name": "Reactivate Employee (Admin only)",
+              "request": {
+                "method":"PATCH","url":"{{baseUrl}}/employees/{{employeeId}}/status",
+                "header":[{"key":"Authorization","value":"Bearer {{adminToken}}"},{"key":"Content-Type","value":"application/json"}],
+                "body":{"mode":"raw","raw":"{\"is_active\":true}"}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 – Assets",
+      "item": [
+        {
+          "name": "Get All Assets",
+          "request": { "method":"GET","url":"{{baseUrl}}/assets","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Assets – Filter by Status (available)",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/assets?status=available","query":[{"key":"status","value":"available"}],"host":["{{baseUrl}}/assets"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Assets – Search by Tag/Name",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/assets?search=AF-0001","query":[{"key":"search","value":"AF-0001"}],"host":["{{baseUrl}}/assets"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Assets – Bookable Only",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/assets?is_bookable=true","query":[{"key":"is_bookable","value":"true"}],"host":["{{baseUrl}}/assets"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Asset by ID",
+          "request": { "method":"GET","url":"{{baseUrl}}/assets/{{assetId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Asset History",
+          "request": { "method":"GET","url":"{{baseUrl}}/assets/{{assetId}}/history","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Register Asset",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('assetId',pm.response.json().data.id);}"]}}],
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/assets",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"name\":\"Lenovo ThinkPad X1\",\"category_id\":\"{{categoryId}}\",\"serial_number\":\"SN-LNV-2024\",\"acquisition_date\":\"2024-01-15\",\"acquisition_cost\":85000,\"condition\":\"new\",\"location\":\"Desk F01\",\"is_bookable\":false,\"notes\":\"Issued to senior dev team\"}"}
+          }
+        },
+        {
+          "name": "Update Asset",
+          "request": {
+            "method":"PUT","url":"{{baseUrl}}/assets/{{assetId}}",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"location\":\"Desk F02\",\"condition\":\"good\",\"notes\":\"Updated location\"}"}
+          }
+        },
+        {
+          "name": "Update Asset Status (retire)",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/assets/{{assetId}}/status",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"status\":\"retired\"}"}
+          }
+        },
+        {
+          "name": "Delete Asset",
+          "request": { "method":"DELETE","url":"{{baseUrl}}/assets/{{assetId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        }
+      ]
+    },
+    {
+      "name": "04 – Allocations & Transfers",
+      "item": [
+        {
+          "name": "Get All Allocations",
+          "request": { "method":"GET","url":"{{baseUrl}}/allocations","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Active Allocations",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/allocations?is_active=true","query":[{"key":"is_active","value":"true"}],"host":["{{baseUrl}}/allocations"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Overdue Allocations",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/allocations?overdue=true","query":[{"key":"overdue","value":"true"}],"host":["{{baseUrl}}/allocations"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Allocation by ID",
+          "request": { "method":"GET","url":"{{baseUrl}}/allocations/{{allocationId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Allocate Asset to Employee",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('allocationId',pm.response.json().data.id);}"]}}],
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/allocations",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"assigned_to_user\":\"{{employeeId}}\",\"expected_return_at\":\"2026-12-31\"}"}
+          }
+        },
+        {
+          "name": "Allocate Asset to Department",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/allocations",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"assigned_to_dept\":\"{{departmentId}}\"}"}
+          }
+        },
+        {
+          "name": "Try Double-Allocate (expect conflict 409)",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/allocations",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"assigned_to_user\":\"{{employeeId}}\"}"}
+          }
+        },
+        {
+          "name": "Return Asset",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/allocations/{{allocationId}}/return",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"return_condition\":\"good\",\"return_notes\":\"No damage, returned in good condition\"}"}
+          }
+        },
+        {
+          "name": "Get All Transfers",
+          "request": { "method":"GET","url":"{{baseUrl}}/allocations/transfers","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Pending Transfers",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/allocations/transfers?status=pending","query":[{"key":"status","value":"pending"}],"host":["{{baseUrl}}/allocations/transfers"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Request Transfer",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('transferId',pm.response.json().data.id);}"]}}],
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/allocations/transfers",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"to_user_id\":\"{{employeeId}}\",\"reason\":\"Project reassignment — new team member needs the laptop\"}"}
+          }
+        },
+        {
+          "name": "Approve Transfer",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/allocations/transfers/{{transferId}}/approve",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
+        },
+        {
+          "name": "Reject Transfer",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/allocations/transfers/{{transferId}}/reject",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"rejection_note\":\"Asset is required by current holder for ongoing project\"}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 – Resource Bookings",
+      "item": [
+        {
+          "name": "Get All Bookings",
+          "request": { "method":"GET","url":"{{baseUrl}}/bookings","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get My Bookings",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/bookings?booked_by={{employeeId}}","query":[{"key":"booked_by","value":"{{employeeId}}"}],"host":["{{baseUrl}}/bookings"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Upcoming Bookings",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/bookings?status=upcoming","query":[{"key":"status","value":"upcoming"}],"host":["{{baseUrl}}/bookings"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Booking by ID",
+          "request": { "method":"GET","url":"{{baseUrl}}/bookings/{{bookingId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Asset Calendar (existing bookings for a resource)",
+          "request": { "method":"GET","url":"{{baseUrl}}/bookings/asset/{{assetId}}/calendar","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Book a Resource (valid slot)",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('bookingId',pm.response.json().data.id);}"]}}],
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/bookings",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"title\":\"Team Standup\",\"start_time\":\"2026-07-15T10:00:00.000Z\",\"end_time\":\"2026-07-15T11:00:00.000Z\",\"notes\":\"Daily standup meeting\"}"}
+          }
+        },
+        {
+          "name": "Book Resource – Overlap Conflict (expect 400)",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/bookings",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"title\":\"Conflicting Booking\",\"start_time\":\"2026-07-15T10:30:00.000Z\",\"end_time\":\"2026-07-15T11:30:00.000Z\"}"}
+          }
+        },
+        {
+          "name": "Update Booking",
+          "request": {
+            "method":"PUT","url":"{{baseUrl}}/bookings/{{bookingId}}",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"title\":\"Updated Meeting Title\",\"notes\":\"Updated notes\"}"}
+          }
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/bookings/{{bookingId}}/cancel",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"cancel_reason\":\"Meeting rescheduled to next week\"}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 – Maintenance",
+      "item": [
+        {
+          "name": "Get All Maintenance Requests",
+          "request": { "method":"GET","url":"{{baseUrl}}/maintenance","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Pending Requests",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/maintenance?status=pending","query":[{"key":"status","value":"pending"}],"host":["{{baseUrl}}/maintenance"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get High Priority Requests",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/maintenance?priority=high","query":[{"key":"priority","value":"high"}],"host":["{{baseUrl}}/maintenance"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Maintenance Request by ID",
+          "request": { "method":"GET","url":"{{baseUrl}}/maintenance/{{maintenanceId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Raise Maintenance Request",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('maintenanceId',pm.response.json().data.id);}"]}}],
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/maintenance",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"issue_desc\":\"Laptop screen flickering and display artifacts visible\",\"priority\":\"high\"}"}
+          }
+        },
+        {
+          "name": "Approve Maintenance Request (Asset status → Under Maintenance)",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/maintenance/{{maintenanceId}}/approve",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
+        },
+        {
+          "name": "Reject Maintenance Request",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/maintenance/{{maintenanceId}}/reject",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"rejection_note\":\"Issue could not be reproduced. Reassess and resubmit.\"}"}
+          }
+        },
+        {
+          "name": "Assign Technician",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/maintenance/{{maintenanceId}}/assign",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"assigned_to\":\"{{employeeId}}\"}"}
+          }
+        },
+        {
+          "name": "Mark In Progress",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/maintenance/{{maintenanceId}}/start",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
+        },
+        {
+          "name": "Resolve Maintenance (Asset status → Available)",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/maintenance/{{maintenanceId}}/resolve",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"resolution_note\":\"Replaced display cable. Screen working normally. Tested for 30 minutes.\"}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 – Audit",
+      "item": [
+        {
+          "name": "Get All Audit Cycles",
+          "request": { "method":"GET","url":"{{baseUrl}}/audits","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Open Audit Cycles",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/audits?status=open","query":[{"key":"status","value":"open"}],"host":["{{baseUrl}}/audits"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Audit Cycle by ID",
+          "request": { "method":"GET","url":"{{baseUrl}}/audits/{{auditId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Discrepancy Report",
+          "request": { "method":"GET","url":"{{baseUrl}}/audits/{{auditId}}/discrepancies","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Create Audit Cycle",
+          "event": [{"listen":"test","script":{"exec":["if(pm.response.code===201){pm.collectionVariables.set('auditId',pm.response.json().data.id);}"]}}],
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/audits",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"title\":\"Q3 Audit: Facilities Dept\",\"scope_dept\":\"{{departmentId}}\",\"start_date\":\"2026-07-01\",\"end_date\":\"2026-07-15\",\"notes\":\"Annual quarterly asset verification\"}"}
+          }
+        },
+        {
+          "name": "Add Auditor to Cycle",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/audits/{{auditId}}/auditors",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"user_id\":\"{{employeeId}}\"}"}
+          }
+        },
+        {
+          "name": "Remove Auditor from Cycle",
+          "request": { "method":"DELETE","url":"{{baseUrl}}/audits/{{auditId}}/auditors/{{employeeId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Add Asset to Audit",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/audits/{{auditId}}/items",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"asset_id\":\"{{assetId}}\",\"expected_location\":\"Desk E12\"}"}
+          }
+        },
+        {
+          "name": "Verify Audit Item – Verified",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/audits/{{auditId}}/items/ITEM_ID_HERE/verify",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"verification\":\"verified\",\"notes\":\"Asset found at expected location\"}"}
+          }
+        },
+        {
+          "name": "Verify Audit Item – Missing",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/audits/{{auditId}}/items/ITEM_ID_HERE/verify",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"verification\":\"missing\",\"notes\":\"Asset not found at desk or storage\"}"}
+          }
+        },
+        {
+          "name": "Verify Audit Item – Damaged",
+          "request": {
+            "method":"PATCH","url":"{{baseUrl}}/audits/{{auditId}}/items/ITEM_ID_HERE/verify",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"},{"key":"Content-Type","value":"application/json"}],
+            "body":{"mode":"raw","raw":"{\"verification\":\"damaged\",\"notes\":\"Screen cracked on top-right corner\"}"}
+          }
+        },
+        {
+          "name": "Close Audit Cycle (updates asset statuses)",
+          "request": {
+            "method":"POST","url":"{{baseUrl}}/audits/{{auditId}}/close",
+            "header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 – Dashboard",
+      "item": [
+        {
+          "name": "Get KPI Cards",
+          "request": { "method":"GET","url":"{{baseUrl}}/dashboard/kpis","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Recent Activity Feed",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/dashboard/recent-activity?limit=10","query":[{"key":"limit","value":"10"}],"host":["{{baseUrl}}/dashboard/recent-activity"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Overdue Allocations",
+          "request": { "method":"GET","url":"{{baseUrl}}/dashboard/overdue-allocations","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        }
+      ]
+    },
+    {
+      "name": "09 – Reports & Analytics",
+      "item": [
+        {
+          "name": "Asset Utilization by Department",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/utilization","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Most Used Assets (this month)",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/most-used","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Idle Assets (30+ days)",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/reports/idle?days=30","query":[{"key":"days","value":"30"}],"host":["{{baseUrl}}/reports/idle"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Idle Assets (60+ days)",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/reports/idle?days=60","query":[{"key":"days","value":"60"}],"host":["{{baseUrl}}/reports/idle"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Maintenance Frequency by Asset",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/maintenance-frequency","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Assets Due for Attention (maintenance/retirement)",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/due-attention","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Resource Booking Heatmap",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/booking-heatmap","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Booking Heatmap for Specific Asset",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/reports/booking-heatmap?asset_id={{assetId}}","query":[{"key":"asset_id","value":"{{assetId}}"}],"host":["{{baseUrl}}/reports/booking-heatmap"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Department-wise Allocation Summary",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/dept-allocation","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Export Full Report",
+          "request": { "method":"GET","url":"{{baseUrl}}/reports/export","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        }
+      ]
+    },
+    {
+      "name": "10 – Notifications & Activity Logs",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": { "method":"GET","url":"{{baseUrl}}/notifications","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Unread Notifications",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/notifications?is_read=false","query":[{"key":"is_read","value":"false"}],"host":["{{baseUrl}}/notifications"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Notifications by Type",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/notifications?type=asset_assigned","query":[{"key":"type","value":"asset_assigned"}],"host":["{{baseUrl}}/notifications"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": { "method":"PATCH","url":"{{baseUrl}}/notifications/NOTIFICATION_ID/read","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": { "method":"PATCH","url":"{{baseUrl}}/notifications/read-all","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Delete Notification",
+          "request": { "method":"DELETE","url":"{{baseUrl}}/notifications/NOTIFICATION_ID","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get All Activity Logs (Admin/Manager)",
+          "request": { "method":"GET","url":"{{baseUrl}}/activity-logs","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Activity Logs – Filter by Entity Type",
+          "request": { "method":"GET","url":{"raw":"{{baseUrl}}/activity-logs?entity_type=asset","query":[{"key":"entity_type","value":"asset"}],"host":["{{baseUrl}}/activity-logs"]},"header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
+        },
+        {
+          "name": "Get Activity Logs for Specific Entity",
+          "request": { "method":"GET","url":"{{baseUrl}}/activity-logs/entity/asset/{{assetId}}","header":[{"key":"Authorization","value":"Bearer {{accessToken}}"}] }
         }
       ]
     }

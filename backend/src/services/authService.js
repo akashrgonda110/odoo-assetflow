@@ -47,7 +47,8 @@ export const AuthService = {
     if (existing) throw ApiError.badRequest('Email is already registered');
 
     const hashed = await bcrypt.hash(password, 12);
-    const user   = await UserModel.create({ name, email, password: hashed });
+    // Signup always creates an employee — no self-assigned roles
+    const user   = await UserModel.create({ name, email, password: hashed, role: 'employee' });
 
     const { accessToken, refreshToken } = await _issueTokenPair(user);
     return { user, accessToken, refreshToken };
