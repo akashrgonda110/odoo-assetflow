@@ -25,10 +25,10 @@ A full-stack enterprise asset management system. AssetFlow gives organizations c
 - [Development Notes](#development-notes)
 
 ---
+<img width="1746" height="787" alt="Screenshot 2026-07-12 171057" src="https://github.com/user-attachments/assets/3b5cd1cd-f3c4-4490-aac0-b1c78517f025" />
 <img width="1917" height="917" alt="Screenshot 2026-07-12 171220" src="https://github.com/user-attachments/assets/eff5a03b-cd5c-4652-bdff-add3fb115e7c" />
 <img width="1886" height="893" alt="Screenshot 2026-07-12 171200" src="https://github.com/user-attachments/assets/28af2f6a-1ea6-40dc-957f-08046c4062ac" />
 <img width="1911" height="892" alt="Screenshot 2026-07-12 171137" src="https://github.com/user-attachments/assets/e20234cc-c1f5-4834-823a-d69a227b741e" />
-<img width="1746" height="787" alt="Screenshot 2026-07-12 171057" src="https://github.com/user-attachments/assets/3b5cd1cd-f3c4-4490-aac0-b1c78517f025" />
 
 ## Overview
 
